@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,9 +19,12 @@ namespace HierarchyDecorator
 
         private static readonly Dictionary<EntityId, RowData> s_Rows = new Dictionary<EntityId, RowData>(1024);
         private static readonly Dictionary<Type, ComponentDisplay> s_RuleTable = new Dictionary<Type, ComponentDisplay>(64);
-        private static readonly List<Type> s_StackedTypes = new List<Type>(16);
 
         private static int s_RuleTableRevision = -1;
+
+        // The two markers that matter: everything else on the bind path is style writes.
+        private static readonly ProfilerMarker s_ComponentScanMarker = new ProfilerMarker("HierarchyDecorator.ScanComponents");
+        private static readonly ProfilerMarker s_NameMatchMarker = new ProfilerMarker("HierarchyDecorator.MatchHeaderRule");
 
         public static int Count => s_Rows.Count;
 
@@ -114,6 +118,8 @@ namespace HierarchyDecorator
 
         private static void FillName(RowData data, GameObject gameObject, HierarchyDecoratorSettings settings)
         {
+            using ProfilerMarker.AutoScope scope = s_NameMatchMarker.Auto();
+
             data.Name = gameObject.name;
 
             NameMatcher.Match match = NameMatcher.FindRule(data.Name, settings.HeaderRules);
@@ -124,6 +130,8 @@ namespace HierarchyDecorator
 
         private static void FillComponents(RowData data, GameObject gameObject, HierarchyDecoratorSettings settings)
         {
+            using ProfilerMarker.AutoScope scope = s_ComponentScanMarker.Auto();
+
             data.IconCount = 0;
             data.OverflowCount = 0;
             data.MissingScriptCount = 0;
@@ -135,11 +143,6 @@ namespace HierarchyDecorator
             data.EnsureIconCapacity(total);
 
             int limit = options.maxIconsPerRow <= 0 ? int.MaxValue : options.maxIconsPerRow;
-
-            if (options.stackDuplicates)
-            {
-                s_StackedTypes.Clear();
-            }
 
             for (int i = 0; i < total; i++)
             {

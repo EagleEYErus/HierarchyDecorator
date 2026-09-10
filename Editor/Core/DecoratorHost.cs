@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Hierarchy;
 using Unity.Hierarchy.Editor;
+using Unity.Profiling;
 using UnityEditor;
 using UnityEngine;
 
@@ -39,6 +40,10 @@ namespace HierarchyDecorator
             new IndicatorDecorator(),
             new ComponentIconDecorator()
         };
+
+        // Zero cost while the profiler is off, and the only honest way to measure the bind path.
+        // See PERFORMANCE.md for the methodology these feed.
+        private static readonly ProfilerMarker s_DecorateMarker = new ProfilerMarker("HierarchyDecorator.DecorateRow");
 
         private static readonly HashSet<string> s_Failed = new HashSet<string>(StringComparer.Ordinal);
         private static readonly Dictionary<HierarchyViewItem, BoundRow> s_Live = new Dictionary<HierarchyViewItem, BoundRow>();
@@ -190,6 +195,8 @@ namespace HierarchyDecorator
 
         private static void Decorate(HierarchyWindow window, HierarchyView view, HierarchyViewItem item, HierarchyNode node, EntityId id)
         {
+            using ProfilerMarker.AutoScope scope = s_DecorateMarker.Auto();
+
             HierarchyDecoratorSettings settings = HierarchyDecoratorSettings.instance;
             bool active = !s_Suspended && HierarchyDecoratorUserSettings.instance.Enabled;
 
