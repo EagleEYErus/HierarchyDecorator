@@ -236,11 +236,35 @@ namespace HierarchyDecorator
             return node;
         }
 
+        /// <summary>
+        /// Unity quotes scalars that would otherwise be ambiguous YAML - a header prefix of "-" is written as
+        /// <c>'-'</c>. Carrying the quotes into the value would produce a rule that can never match.
+        /// </summary>
+        private static string Unquote(string value)
+        {
+            if (value.Length < 2)
+            {
+                return value;
+            }
+
+            char first = value[0];
+
+            if ((first != '\'' && first != '"') || value[value.Length - 1] != first)
+            {
+                return value;
+            }
+
+            string inner = value.Substring(1, value.Length - 2);
+
+            // Inside single quotes YAML escapes a quote by doubling it.
+            return first == '\'' ? inner.Replace("''", "'") : inner;
+        }
+
         private static YamlNode ParseInline(string value)
         {
             if (value.Length < 2 || value[0] != '{' || value[value.Length - 1] != '}')
             {
-                return new YamlNode { Scalar = value };
+                return new YamlNode { Scalar = Unquote(value) };
             }
 
             YamlNode node = new YamlNode { Map = new Dictionary<string, YamlNode>(StringComparer.Ordinal) };

@@ -265,6 +265,20 @@ namespace HierarchyDecorator
                 report.HeaderRules++;
             }
 
+            // 1.x had no separator concept, so the 2.0 default is appended rather than lost. It is placed
+            // first because "---" would otherwise fall through to a "-" sub-header rule.
+            List<HeaderRule> defaults = new List<HeaderRule>();
+            DefaultSettings.PopulateHeaderRules(defaults);
+
+            HeaderRule separator = defaults.Find(r => r.kind == HeaderKind.Separator);
+
+            if (separator != null && !rules.Exists(r => r.kind == HeaderKind.Separator))
+            {
+                rules.Insert(0, separator);
+                report.HeaderRules++;
+                report.Notes.Add("Added the 2.0 '---' separator rule, which has no 1.x equivalent.");
+            }
+
             report.Notes.Add("Header rule order was preserved: the first matching rule still wins.");
         }
 
