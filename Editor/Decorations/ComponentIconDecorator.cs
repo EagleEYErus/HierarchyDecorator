@@ -161,13 +161,7 @@ namespace HierarchyDecorator
 
         private static VisualElement CreateStrip(VisualElement host)
         {
-            VisualElement strip = new VisualElement
-            {
-                name = StripName,
-                pickingMode = PickingMode.Ignore
-            };
-
-            strip.AddToClassList("hd-component-icons");
+            VisualElement strip = IconElements.CreateStrip(StripName);
             host.Add(strip);
             return strip;
         }
@@ -186,13 +180,7 @@ namespace HierarchyDecorator
 
             for (int i = existing; i < required; i++)
             {
-                VisualElement icon = new VisualElement
-                {
-                    name = "hd-component-icon-" + i,
-                    pickingMode = PickingMode.Position
-                };
-
-                icon.AddToClassList("hd-component-icon");
+                VisualElement icon = IconElements.CreateIcon("hd-component-icon-" + i, interactive: true);
 
                 // Registered once, at creation: rows are recycled and callbacks must not be re-registered on
                 // every bind. The bound component travels in userData.

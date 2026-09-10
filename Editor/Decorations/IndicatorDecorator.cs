@@ -53,13 +53,7 @@ namespace HierarchyDecorator
 
         private static VisualElement CreateBadge(VisualElement host)
         {
-            VisualElement badge = new VisualElement
-            {
-                name = BadgeName,
-                pickingMode = PickingMode.Position
-            };
-
-            badge.AddToClassList("hd-indicator");
+            VisualElement badge = IconElements.CreateBadge(BadgeName);
             host.Add(badge);
             return badge;
         }

@@ -108,13 +108,7 @@ namespace HierarchyDecorator
                 return strip;
             }
 
-            strip = new VisualElement
-            {
-                name = "hd-column-icons",
-                pickingMode = PickingMode.Ignore
-            };
-
-            strip.AddToClassList("hd-component-icons");
+            strip = IconElements.CreateStrip("hd-column-icons");
             cell.Add(strip);
             return strip;
         }
@@ -123,14 +117,7 @@ namespace HierarchyDecorator
         {
             for (int i = strip.childCount; i < count; i++)
             {
-                VisualElement icon = new VisualElement
-                {
-                    name = "hd-column-icon-" + i,
-                    pickingMode = PickingMode.Position
-                };
-
-                icon.AddToClassList("hd-component-icon");
-                strip.Add(icon);
+                strip.Add(IconElements.CreateIcon("hd-column-icon-" + i, interactive: false));
             }
         }
 

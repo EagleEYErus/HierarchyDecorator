@@ -16,13 +16,12 @@ namespace HierarchyDecorator
         public const string PreferencesMenuPath = "Preferences/Hierarchy Decorator";
         public const string ToolsMenuPath = "Tools/Hierarchy Decorator/";
 
-        public const string PackageRoot = "Packages/" + Name;
-        public const string UiRoot = PackageRoot + "/Editor/UI";
+        public const string DefaultPackageRoot = "Packages/" + Name;
 
-        public const string StyleSheetBase = UiRoot + "/HierarchyDecorator.uss";
-        public const string StyleSheetDark = UiRoot + "/HierarchyDecorator_dark.uss";
-        public const string StyleSheetLight = UiRoot + "/HierarchyDecorator_light.uss";
-        public const string SettingsStyleSheet = UiRoot + "/HierarchyDecoratorSettings.uss";
+        public static string StyleSheetBase => PackagePaths.Ui("HierarchyDecorator.uss");
+        public static string StyleSheetDark => PackagePaths.Ui("HierarchyDecorator_dark.uss");
+        public static string StyleSheetLight => PackagePaths.Ui("HierarchyDecorator_light.uss");
+        public static string SettingsStyleSheet => PackagePaths.Ui("HierarchyDecoratorSettings.uss");
 
         /// <summary>
         /// Marker class added to <c>HierarchyView.StyleContainer</c>. Every selector we ship is scoped under

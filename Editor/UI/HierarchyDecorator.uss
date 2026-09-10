@@ -21,21 +21,15 @@
 
 /* ---------------------------------------------------------------- component icons */
 
+/* Layout for the icon elements themselves is set inline (see IconElements) so that a stylesheet that
+   fails to load cannot turn every icon into an invisible zero-sized box. Only cosmetics live here. */
+
 .hd-root .hd-component-icons {
-    flex-direction: row;
-    align-items: center;
-    flex-shrink: 0;
     margin-right: 2px;
 }
 
 .hd-root .hd-component-icon {
-    width: 16px;
-    height: 16px;
-    flex-grow: 0;
-    flex-shrink: 0;
     margin-left: 1px;
-    background-size: contain;
-    background-repeat: no-repeat;
     background-position: center;
 }
 
@@ -67,12 +61,6 @@
 /* ---------------------------------------------------------------- indicators */
 
 .hd-root .hd-indicator {
-    width: 14px;
-    height: 14px;
-    flex-grow: 0;
-    flex-shrink: 0;
     margin-left: 3px;
-    background-size: contain;
-    background-repeat: no-repeat;
     background-position: center;
 }

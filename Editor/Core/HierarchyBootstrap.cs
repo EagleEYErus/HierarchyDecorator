@@ -21,9 +21,15 @@ namespace HierarchyDecorator
 
         static HierarchyBootstrap()
         {
-            // The static constructor runs while other editor subsystems are still initialising; deferring one
-            // tick guarantees the settings singletons and TypeCache are usable.
-            EditorApplication.delayCall += Install;
+            // Subscribing has to happen here, not on delayCall: HierarchyWindow.BindView is raised from the
+            // window's CreateGUI, which can run before the first delayCall of a domain. Missing it means the
+            // stylesheets are never added to that view - the row callbacks would still fire, so the failure
+            // shows up only as unstyled decorations.
+            Install();
+
+            // Work that needs other editor subsystems (settings files, TypeCache, open windows) is what gets
+            // deferred instead.
+            EditorApplication.delayCall += OnEditorReady;
         }
 
         internal static bool IsInstalled => s_Installed;
@@ -55,9 +61,33 @@ namespace HierarchyDecorator
             PrefabStage.prefabStageClosing += OnPrefabStageChanged;
 
             AssemblyReloadEvents.beforeAssemblyReload += Uninstall;
+        }
 
+        private static void OnEditorReady()
+        {
             LegacyMigrator.RunIfNeeded();
             LegacyHierarchyNotice.CheckOnce();
+            BindOpenWindows();
+        }
+
+        /// <summary>
+        /// Applies the view-level setup to Hierarchy windows that were already bound before this domain's
+        /// subscription happened. BindView is a one-shot per view, so without this a window that survived the
+        /// reload would keep running unstyled until the next scene or prefab-stage change.
+        /// </summary>
+        private static void BindOpenWindows()
+        {
+            HierarchyWindow[] windows = Resources.FindObjectsOfTypeAll<HierarchyWindow>();
+
+            for (int i = 0; i < windows.Length; i++)
+            {
+                HierarchyWindow window = windows[i];
+
+                if (window != null && window.View != null)
+                {
+                    StyleInjector.OnBindView(window, window.View);
+                }
+            }
         }
 
         internal static void Uninstall()
