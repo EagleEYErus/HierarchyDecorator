@@ -1,7 +1,8 @@
 # Hierarchy Decorator 2.0 — Performance
 
 **Status of the numbers in this document: nothing has been measured yet.** Every result cell below reads
-`not measured`. This file exists to fix the design claims, the cost model and the benchmark procedure *before*
+`not measured` - see §6, where the cache-fill benchmark has been run and the interactive scroll benchmark has
+not. This file exists to fix the design claims, the cost model and the benchmark procedure *before*
 any number is produced, so that the first run has something to be checked against.
 
 Scope: the Editor decoration path only (`Editor/**`). Companion documents: [ARCHITECTURE.md](ARCHITECTURE.md)
@@ -378,9 +379,46 @@ benchmark code.
 
 ## 6. Results
 
-**Not yet measured.** No benchmark has been run for 2.0.0. Every cell below is a placeholder. These tables
-will be filled in once the benchmark has actually been run on the target hardware, and the environment block
-of §5.2 will be recorded above them at that point.
+Two different things are measured here, and they are kept apart on purpose.
+
+**§6.0 has been run.** It measures the cache fill - the component scan, the icon resolution and the header
+match - which is the only genuinely expensive work 2.0 does, and the one number the whole design rests on. It
+runs headlessly and is committed, so anyone can reproduce it.
+
+**§6.1 onward have not been run.** They measure UI Toolkit's own layout and repaint cost while a human
+scrolls, which needs an interactive editor and the Profiler. Every cell there is still a placeholder.
+
+### 6.0 Cache fill — measured
+
+Environment: Unity 6000.6.0f1, Apple M1 Pro, macOS 26, `-batchmode -nographics`, Editor scripts compiled in
+release. Scenes shaped as §5.3 describes (mixed depth, a spread of component counts, a header row every
+fiftieth object).
+
+Reproduce with:
+
+```bash
+Unity -batchmode -nographics -projectPath <project> -runTests -testPlatform EditMode \
+      -testFilter "HierarchyDecorator.Tests.PerformanceBenchmarks" -testResults results.xml -logFile -
+```
+
+| Scene | Cold fill (total) | Cold (per object) | Warm fill (total) | Warm (per object) | Cache |
+|---|---|---|---|---|---|
+| S100 | 0.21 ms | 2.1 µs | 0.06 ms | 0.6 µs | 100 entries, <1 KB |
+| S1k | 1.34 ms | 1.3 µs | 0.07 ms | 0.1 µs | 1 000 entries, ~152 KB |
+| S10k | 13.55 ms | 1.4 µs | 0.85 ms | 0.1 µs | 10 000 entries, ~3.1 MB |
+
+What these numbers mean in practice:
+
+* **Cold cost is per row, not per scene.** Only visible rows bind, so a full screen of ~60 rows costs about
+  **0.08 ms** the first time it is scrolled into view. The 13.55 ms figure for S10k is the whole scene at
+  once, which never happens outside this benchmark.
+* **Warm cost is ~13× lower and flat** at ~0.1 µs per row - that is the facet-mask early-out in
+  `DecorationCache.Ensure`, and it is what every scroll-back, every repaint and every unrelated refresh pays.
+  The benchmark asserts warm < 25 % of cold and fails if the cache is ever bypassed.
+* **Memory is ~315 bytes per cached row**, dominated by the icon array. A 10 000 object scene fully traversed
+  costs about 3 MB; the cache is capped at 32 768 entries.
+
+Not covered by these numbers: UI Toolkit layout and repaint, which is what §6.1 onward are for.
 
 ### 6.1 Scroll — median ms per bound row
 

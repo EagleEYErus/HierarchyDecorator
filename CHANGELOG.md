@@ -60,6 +60,21 @@ Hierarchy Decorator has been rebuilt on Unity 6.6's public `Unity.Hierarchy` hie
 - Header matching keeps 1.x's exact rule — `StartsWith` on the prefix plus, unless the rule opts out, a single following space — so existing scenes keep rendering as they did. The shipped defaults are `---` (separator), `=`, `-` and `+`.
 - The two divergent prefix-stripping implementations in 1.x are unified into one, so the drawn label and the matched label can no longer disagree.
 
+### Verified
+
+Run against Unity 6000.6.0f1 in a real editor, not asserted:
+
+- Light and dark theme, including switching the Editor theme while the Hierarchy is open: the correct theme stylesheet is swapped in, header colors invert, component icons re-resolve.
+- Prefab Mode, including nested depth: guide lines are drawn from the prefab root, not the scene root.
+- Multi-scene: two additively loaded scenes, headers decorated in both.
+- Play Mode: decorated before entering, during, and after returning to Edit Mode.
+- Undo and redo of a header conversion, including that Unity's own row label keeps the real object name.
+- A GameObject with a genuinely missing MonoBehaviour script: the badge is drawn, healthy rows are untouched, rendering does not fall over.
+- Fresh install into an empty project: compiles with no errors or warnings, writes nothing into `Assets/`, and the settings match the preset the UI says is active.
+- Cache fill benchmark at 100 / 1 000 / 10 000 GameObjects — see PERFORMANCE.md §6.0.
+
+Not verified: UI Toolkit's own layout and repaint cost while scrolling, which needs an interactive Profiler session.
+
 ### Second review pass
 
 - Deleting every header rule now sticks. The defaults were re-seeded whenever the list was empty, so a team that does not use the prefix convention could not turn the feature off.

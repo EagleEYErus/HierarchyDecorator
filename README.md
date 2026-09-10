@@ -182,7 +182,7 @@ same menu. 2.0 does not reimplement them.
 | Preset | Turns on |
 |---|---|
 | **Minimal** | Headers. Tree lines, dotted, immediate parent only, no connector, very low opacity. Missing-script indicator. No component icons, no row color override. |
-| **Clean** (default) | Headers. Solid tree lines at full depth with connector. Component icons in `Selected` mode — only components you explicitly show, custom scripts excluded, at most 4 per row, tooltips on, click selects. Missing-script indicator. |
+| **Clean** (default) | Headers. Solid tree lines at full depth with connector. Component icons for built-in components only — custom scripts excluded, at most 4 per row, tooltips on, click selects. Missing-script indicator. |
 | **Developer** | Headers. Solid tree lines at full depth with connector, stronger opacity. Component icons in `All` mode including custom scripts, up to 8 per row, tooltips on, disabled components faded, **click toggles the component's enable state**. Missing-script indicator. |
 | **Designer** | Headers. Solid tree lines at full depth with connector, low opacity. No component icons, no tooltips, no missing-script indicator, no row color override. Structure only. |
 | **Debug** | Headers. Dashed tree lines at full depth, high opacity. **Row color override on.** Component icons in `All` mode including custom scripts, up to 12 per row, tooltips on, disabled components faded, click toggles enable state. Missing-script indicator. |
@@ -232,11 +232,16 @@ texture rasterization; dashed and dotted lines use one-pixel repeating textures 
 The single value read live per icon is the component's enabled state, because caching it would make the fade
 lag behind the Inspector.
 
-Concrete numbers have not been measured yet. See [PERFORMANCE.md](PERFORMANCE.md) for the measurement
-methodology and the results once they exist. The package ships a **Benchmark Scene Generator** sample that
-builds the 100 / 1 000 / 10 000 GameObject hierarchies those measurements run against, and three
-`ProfilerMarker`s — `HierarchyDecorator.DecorateRow`, `.ScanComponents` and `.MatchHeaderRule` — so the claims
-above can be checked rather than taken on trust.
+Measured on an Apple M1 Pro with Unity 6000.6.0f1: filling the cache for a row costs about **1.4 µs** the
+first time it scrolls into view — roughly **0.08 ms for a full screen of 60 rows** — and about **0.1 µs**
+every time after that, which is what scrolling back over the same rows pays. A fully traversed 10 000 object
+scene holds about 3 MB of cache.
+
+That covers the work this package does. It does not cover UI Toolkit's own layout and repaint, which needs an
+interactive Profiler session and has not been measured. Full numbers, method and the parts still outstanding
+are in [PERFORMANCE.md](PERFORMANCE.md); the benchmark is a committed test you can re-run, and the package
+ships `HierarchyDecorator.DecorateRow`, `.ScanComponents` and `.MatchHeaderRule` profiler markers plus a
+**Benchmark Scene Generator** sample so the claims can be checked rather than taken on trust.
 
 ---
 
