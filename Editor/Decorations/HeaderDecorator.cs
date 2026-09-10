@@ -1,3 +1,4 @@
+using Unity.Hierarchy;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -7,23 +8,36 @@ namespace HierarchyDecorator
     /// Headers and separators - rows whose name matches a <see cref="HeaderRule"/> become scene section
     /// markers.
     ///
-    /// Unlike 1.x this never repaints the row. The row's own background colour is tinted, the existing name
-    /// Label is restyled, and a separator line is a background image on the shared row container. Unity keeps
-    /// drawing the foldout, selection, hover, prefab override bar and prefab text colours, which is what fixes
-    /// the "two tone background hides the override bar" and "SubScene caret hidden" classes of bug outright.
+    /// Unlike 1.x this never repaints the row. The row's own background colour is tinted, a label of our own
+    /// carries the stripped text, and a separator line is a background image on the shared row container.
+    /// Unity keeps drawing the foldout, selection, hover, prefab override bar and prefab text colours, which
+    /// is what fixes the "two tone background hides the override bar" and "SubScene caret hidden" classes of
+    /// bug outright.
+    ///
+    /// <para>
+    /// The header text is deliberately NOT written into Unity's own name Label. Unity's inline rename reads
+    /// that Label to seed the edit field (<c>HierarchyViewItemName.BeginRename</c> does
+    /// <c>TextField.value = Label.text</c>), so overwriting it meant renaming "= PLAYER" committed "PLAYER" -
+    /// silently destroying the prefix, the casing, and therefore the header itself. Unity's Label is hidden
+    /// instead, and left holding the true name.
+    /// </para>
     ///
     /// It runs after <see cref="RowTintDecorator"/> on purpose: that decorator always writes the row
     /// background (a colour or a reset), so a header only has to overwrite it and never has to clean up.
     /// </summary>
     internal sealed class HeaderDecorator : IRowDecorator
     {
+        private const string LabelName = "hd-header-label";
+        private const string RenameHookKey = "hd-rename-hook";
+
         public string Id => "headers";
 
         public void Apply(in RowContext context)
         {
-            Label label = context.Item.Name;
+            Label unityLabel = context.Item.Name;
+            VisualElement host = context.Item.LeftCustomContainer;
 
-            if (label == null)
+            if (unityLabel == null || host == null)
             {
                 return;
             }
@@ -32,19 +46,17 @@ namespace HierarchyDecorator
 
             if (rule == null)
             {
-                Reset(context);
+                Reset(context, unityLabel, host);
                 return;
             }
 
             bool isSeparator = rule.kind == HeaderKind.Separator;
-            Color textColor = rule.textColor.Resolve(context.IsDarkSkin);
+            bool hasLabel = !string.IsNullOrEmpty(context.Data.HeaderLabel);
 
             VisualElement row = context.Item.RowContainer;
 
             if (row != null)
             {
-                bool hasLabel = !string.IsNullOrEmpty(context.Data.HeaderLabel);
-
                 if (isSeparator)
                 {
                     ApplySeparatorLine(row, rule, context.IsDarkSkin, hasLabel);
@@ -61,28 +73,32 @@ namespace HierarchyDecorator
                 }
             }
 
-            // Text
-            label.text = string.IsNullOrEmpty(context.Data.HeaderLabel) ? string.Empty : context.Data.HeaderLabel;
-            label.style.color = textColor;
-            label.style.fontSize = rule.fontSize;
-            label.style.unityFontStyleAndWeight = rule.bold ? FontStyle.Bold : FontStyle.Normal;
-            label.style.letterSpacing = rule.letterSpacing;
-            label.style.unityTextAlign = ToTextAnchor(rule.alignment);
+            Label header = RowElements.Find<Label>(host, LabelName) ?? CreateHeaderLabel(host, context.Item);
 
-            // Stretch the name so a centred or right-aligned header spans the row rather than just its own
-            // text box. The right container normally takes the slack, so it is neutralised here.
-            VisualElement nameElement = label.parent;
+            header.style.display = DisplayStyle.Flex;
+            header.text = hasLabel ? context.Data.HeaderLabel : string.Empty;
+            header.style.color = rule.textColor.Resolve(context.IsDarkSkin);
+            header.style.fontSize = rule.fontSize;
+            header.style.unityFontStyleAndWeight = rule.bold ? FontStyle.Bold : FontStyle.Normal;
+            header.style.letterSpacing = rule.letterSpacing;
+            header.style.unityTextAlign = ToTextAnchor(rule.alignment);
+            header.userData = true;
+
+            // Unity's label keeps the real name; it is only hidden so the row shows ours instead.
+            unityLabel.style.display = DisplayStyle.None;
+
+            // Stretch so a centred or right-aligned header spans the row rather than just its own text box.
+            // The right container normally takes the slack, so it is neutralised here; it keeps its content
+            // size, which is what still pins the icon strip to the right.
+            VisualElement nameElement = unityLabel.parent;
             VisualElement leftContainer = nameElement?.parent;
 
-            SetStretch(label, true);
-            SetStretch(nameElement, true);
+            SetStretch(header, true);
+            SetStretch(host, true);
             SetStretch(leftContainer, true);
 
             if (context.Item.RightCustomContainer != null)
             {
-                // The right container normally absorbs the slack, which would leave a centred header
-                // centred over half the row. Giving the slack to the label instead centres it over the whole
-                // row, and the icon strip still pins itself to the right because it keeps its content size.
                 context.Item.RightCustomContainer.style.flexGrow = 0f;
             }
 
@@ -92,32 +108,23 @@ namespace HierarchyDecorator
             SetIconVisible(context.Item, !hideIcon);
         }
 
-        private static void Reset(in RowContext context)
+        private static void Reset(in RowContext context, Label unityLabel, VisualElement host)
         {
-            Label label = context.Item.Name;
+            unityLabel.style.display = StyleKeyword.Null;
 
-            if (label == null)
+            Label header = RowElements.Find<Label>(host, LabelName);
+
+            if (header != null)
             {
-                return;
+                header.style.display = DisplayStyle.None;
+                header.userData = false;
+                SetStretch(header, false);
             }
 
-            if (context.IsGameObject && context.GameObject != null && label.text != context.GameObject.name)
-            {
-                // A recycled row can still be showing a stripped header label.
-                label.text = context.GameObject.name;
-            }
-
-            label.style.color = StyleKeyword.Null;
-            label.style.fontSize = StyleKeyword.Null;
-            label.style.unityFontStyleAndWeight = StyleKeyword.Null;
-            label.style.letterSpacing = StyleKeyword.Null;
-            label.style.unityTextAlign = StyleKeyword.Null;
-
-            VisualElement nameElement = label.parent;
+            VisualElement nameElement = unityLabel.parent;
             VisualElement leftContainer = nameElement?.parent;
 
-            SetStretch(label, false);
-            SetStretch(nameElement, false);
+            SetStretch(host, false);
             SetStretch(leftContainer, false);
 
             if (context.Item.RightCustomContainer != null)
@@ -145,21 +152,83 @@ namespace HierarchyDecorator
             element.style.flexGrow = stretch ? 1f : StyleKeyword.Null;
         }
 
-        private static void SetIconVisible(Unity.Hierarchy.HierarchyViewItem item, bool visible)
+        private static void SetIconVisible(HierarchyViewItem item, bool visible)
         {
             if (item.Icon != null)
             {
-                item.Icon.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+                item.Icon.style.display = visible ? StyleKeyword.Null : DisplayStyle.None;
             }
 
-            if (item.OverlayIcon != null && !visible)
+            if (item.OverlayIcon != null)
             {
-                item.OverlayIcon.style.display = DisplayStyle.None;
+                item.OverlayIcon.style.display = visible ? StyleKeyword.Null : DisplayStyle.None;
             }
-            else if (item.OverlayIcon != null)
+        }
+
+        private static Label CreateHeaderLabel(VisualElement host, HierarchyViewItem item)
+        {
+            Label header = new Label
             {
-                item.OverlayIcon.style.display = StyleKeyword.Null;
+                name = LabelName,
+                pickingMode = PickingMode.Ignore
+            };
+
+            header.AddToClassList("hd-header-label");
+            host.Insert(0, header);
+
+            HookRename(item, header);
+            return header;
+        }
+
+        /// <summary>
+        /// Swaps our label out while Unity's inline rename field is up, and back afterwards. Registered once
+        /// per pooled row; the callbacks read the current state from the label's userData, so they stay
+        /// correct as the row is rebound to other objects.
+        /// </summary>
+        private static void HookRename(HierarchyViewItem item, Label header)
+        {
+            VisualElement nameElement = item.Name?.parent;
+
+            if (nameElement == null || (nameElement.userData as string) == RenameHookKey)
+            {
+                return;
             }
+
+            TextField field = FindTextField(nameElement);
+
+            if (field == null)
+            {
+                return;
+            }
+
+            nameElement.userData = RenameHookKey;
+
+            field.RegisterCallback<FocusInEvent>(_ => header.style.display = DisplayStyle.None);
+
+            field.RegisterCallback<FocusOutEvent>(_ =>
+            {
+                bool active = header.userData is bool flag && flag;
+
+                header.style.display = active ? DisplayStyle.Flex : DisplayStyle.None;
+
+                if (item.Name != null)
+                {
+                    item.Name.style.display = active ? DisplayStyle.None : StyleKeyword.Null;
+                }
+            });
+        }
+
+        private static TextField FindTextField(VisualElement parent)
+        {
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                if (parent[i] is TextField field)
+                {
+                    return field;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

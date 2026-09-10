@@ -19,6 +19,18 @@
     overflow: hidden;
 }
 
+/* ---------------------------------------------------------------- headers */
+
+/* The header text is our own Label, not Unity's. Unity's inline rename reads its name Label to seed the edit
+   field, so writing the stripped text there destroyed the prefix on rename. */
+
+.hd-root .hd-header-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
 /* ---------------------------------------------------------------- component icons */
 
 /* Layout for the icon elements themselves is set inline (see IconElements) so that a stylesheet that
@@ -56,6 +68,15 @@
     margin-left: 3px;
     margin-right: 1px;
     color: var(--hd-overflow-text);
+}
+
+/* ---------------------------------------------------------------- columns */
+
+.hd-root .hd-children-count {
+    flex-grow: 1;
+    -unity-text-align: middle-right;
+    padding-right: 4px;
+    opacity: 0.75;
 }
 
 /* ---------------------------------------------------------------- indicators */
