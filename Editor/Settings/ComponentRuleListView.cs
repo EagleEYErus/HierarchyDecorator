@@ -170,7 +170,7 @@ namespace HierarchyDecorator
 
             name.text = type.Name;
             name.tooltip = type.FullName;
-            assembly.text = type.Assembly.GetName().Name;
+            assembly.text = ComponentCatalog.AssemblyNameOf(type);
 
             ComponentDisplay current = m_RulesByType.TryGetValue(type, out ComponentRule rule)
                 ? rule.display
@@ -195,6 +195,10 @@ namespace HierarchyDecorator
 
         private void SetDisplay(Type type, ComponentDisplay display)
         {
+            // The index caches ComponentRule object references, and an import or a reset replaces the whole
+            // list. Rebuilding first means the view can never edit an object that is no longer in it.
+            RebuildRuleIndex();
+
             List<ComponentRule> rules = m_Settings.ComponentRules;
 
             Undo.RegisterCompleteObjectUndo(m_Settings, "Change Component Rule");

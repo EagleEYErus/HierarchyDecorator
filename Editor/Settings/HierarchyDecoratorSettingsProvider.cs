@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -60,10 +61,16 @@ namespace HierarchyDecorator
             scroll.Add(BuildLegacyWarning());
             scroll.Add(BuildPresetSection(settings));
 
-            scroll.Add(Section("Headers & Separators",
+            HelpBox headerDiagnostics = CreateDiagnosticsBox();
+            HelpBox componentDiagnostics = CreateDiagnosticsBox();
+
+            VisualElement headerSection = Section("Headers & Separators",
                 "Rows whose name starts with a rule's prefix become section markers. " +
                 "Rules are matched top to bottom and the first match wins.",
-                new PropertyField(serialized.FindProperty("m_HeaderRules"), string.Empty)));
+                new PropertyField(serialized.FindProperty("m_HeaderRules"), string.Empty));
+
+            headerSection.Add(headerDiagnostics);
+            scroll.Add(headerSection);
 
             scroll.Add(Section("Tree Guide Lines",
                 "Drawn from the object's real depth. Automatically hidden while the Hierarchy search filter " +
@@ -85,12 +92,14 @@ namespace HierarchyDecorator
             ruleList = new ComponentRuleListView(settings, () =>
             {
                 settings.MarkChangedDeferred();
-                DecoratorHost.RefreshAllLiveRows();
+                UpdateComponentDiagnostics(settings, componentDiagnostics);
+                DecoratorHost.RequestRefreshAllLiveRows();
             });
 
             componentSection.Add(new Label("Displayed Components") { name = "hd-subheading" });
             componentSection.Q<Label>("hd-subheading").AddToClassList("hd-subheading");
             componentSection.Add(ruleList);
+            componentSection.Add(componentDiagnostics);
 
             scroll.Add(componentSection);
 
@@ -103,11 +112,17 @@ namespace HierarchyDecorator
 
             root.Bind(serialized);
 
+            UpdateHeaderDiagnostics(settings, headerDiagnostics);
+            UpdateComponentDiagnostics(settings, componentDiagnostics);
+
             root.TrackSerializedObjectValue(serialized, _ =>
             {
-                NameMatcher.ClearRegexCache();
+                // The regex cache is keyed by the pattern string, so an edited pattern is a natural miss -
+                // clearing it here would recompile every other rule's pattern on every keystroke.
                 settings.MarkChangedDeferred();
-                DecoratorHost.RefreshAllLiveRows();
+                UpdateHeaderDiagnostics(settings, headerDiagnostics);
+                UpdateComponentDiagnostics(settings, componentDiagnostics);
+                DecoratorHost.RequestRefreshAllLiveRows();
             });
         }
 
@@ -254,7 +269,13 @@ namespace HierarchyDecorator
 
         private static VisualElement BuildMaintenanceSection(HierarchyDecoratorSettings settings, ComponentRuleListView ruleList)
         {
-            Button import = new Button(() => EditorApplication.ExecuteMenuItem(PackageInfo.ToolsMenuPath + "Import Settings From 1.x"))
+            Button import = new Button(() =>
+            {
+                EditorApplication.ExecuteMenuItem(PackageInfo.ToolsMenuPath + "Import Settings From 1.x");
+
+                // An import replaces the whole rule list, so the view's cached rule references are stale.
+                ruleList?.Refresh();
+            })
             {
                 text = "Import Settings From 1.x"
             };
@@ -274,6 +295,84 @@ namespace HierarchyDecorator
             buttons.Add(reset);
 
             return Section("Maintenance", $"Stored at {HierarchyDecoratorSettings.FilePath}", buttons);
+        }
+
+        private static HelpBox CreateDiagnosticsBox()
+        {
+            HelpBox box = new HelpBox(string.Empty, HelpBoxMessageType.Warning);
+            box.style.display = DisplayStyle.None;
+            return box;
+        }
+
+        /// <summary>
+        /// Reports header rules whose regex will never match. Without this a typo is completely silent: the
+        /// rule simply stops applying, and the matcher deliberately does not log while the user is typing.
+        /// </summary>
+        private static void UpdateHeaderDiagnostics(HierarchyDecoratorSettings settings, HelpBox box)
+        {
+            StringBuilder builder = null;
+
+            for (int i = 0; i < settings.HeaderRules.Count; i++)
+            {
+                HeaderRule rule = settings.HeaderRules[i];
+
+                if (rule == null || !rule.useRegex)
+                {
+                    continue;
+                }
+
+                string error = NameMatcher.ValidateRegex(rule.pattern);
+
+                if (error == null)
+                {
+                    continue;
+                }
+
+                builder ??= new StringBuilder("Invalid regular expression:");
+                builder.Append("\n  ").Append(string.IsNullOrEmpty(rule.name) ? "Rule " + i : rule.name)
+                    .Append(" - ").Append(error);
+            }
+
+            SetDiagnostics(box, builder);
+        }
+
+        /// <summary>
+        /// Reports component rules whose type no longer resolves. The rule is kept - deleting a user's
+        /// configuration because a script was temporarily removed would be worse - but it has to be visible.
+        /// </summary>
+        private static void UpdateComponentDiagnostics(HierarchyDecoratorSettings settings, HelpBox box)
+        {
+            StringBuilder builder = null;
+
+            for (int i = 0; i < settings.ComponentRules.Count; i++)
+            {
+                ComponentRule rule = settings.ComponentRules[i];
+
+                if (rule == null || ComponentCatalog.Resolve(rule) != null)
+                {
+                    continue;
+                }
+
+                builder ??= new StringBuilder("These component rules no longer resolve to a type and are ignored. " +
+                                              "They are kept in case the script comes back:");
+
+                builder.Append("\n  ").Append(
+                    string.IsNullOrEmpty(rule.typeName) ? "script " + rule.monoScriptGuid : rule.typeName);
+            }
+
+            SetDiagnostics(box, builder);
+        }
+
+        private static void SetDiagnostics(HelpBox box, StringBuilder builder)
+        {
+            if (builder == null)
+            {
+                box.style.display = DisplayStyle.None;
+                return;
+            }
+
+            box.text = builder.ToString();
+            box.style.display = DisplayStyle.Flex;
         }
 
         private static VisualElement BuildLegacyWarning()

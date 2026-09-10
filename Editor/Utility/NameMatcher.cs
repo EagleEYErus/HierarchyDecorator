@@ -177,6 +177,16 @@ namespace HierarchyDecorator
             }
             catch (RegexMatchTimeoutException)
             {
+                // Poison the entry: a catastrophically backtracking pattern would otherwise burn the 50 ms
+                // timeout again for every row, every re-derive, forever. Same policy as the decorator
+                // failure isolation in ARCHITECTURE.md D8.
+                s_RegexCache[rule.pattern] = null;
+
+                HierarchyLog.Once(
+                    "regex-timeout:" + rule.pattern,
+                    $"The header regex '{rule.pattern}' timed out and has been disabled for this session. " +
+                    "Simplify the pattern - it is backtracking catastrophically.");
+
                 return false;
             }
 
@@ -224,9 +234,11 @@ namespace HierarchyDecorator
                     RegexOptions.Compiled | RegexOptions.CultureInvariant,
                     TimeSpan.FromMilliseconds(50));
             }
-            catch (ArgumentException e)
+            catch (ArgumentException)
             {
-                HierarchyLog.Once("regex:" + pattern, $"Invalid header regex '{pattern}': {e.Message}");
+                // Deliberately silent. This runs while the user is still typing the pattern in the settings
+                // window, so every intermediate keystroke would log. The settings page reports invalid
+                // patterns through NameMatcher.ValidateRegex instead.
             }
 
             s_RegexCache[pattern] = regex;

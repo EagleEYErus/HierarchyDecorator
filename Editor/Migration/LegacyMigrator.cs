@@ -93,14 +93,26 @@ namespace HierarchyDecorator
                     "Use Tools > Hierarchy Decorator > Import Settings From 1.x to choose a different one.");
             }
 
+            // Whatever happens next, this runs at most once: a file that fails to parse would otherwise be
+            // re-scanned and re-attempted on every single domain reload.
+            settings.LegacyMigrationCompleted = true;
+
             if (TryMigrate(candidates[0], settings, out Report report))
             {
-                settings.LegacyMigrationCompleted = true;
                 settings.MarkChanged();
 
                 // This runs on delayCall, so rows may already be bound with pre-import decoration.
                 DecoratorHost.RefreshAllLiveRows();
                 HierarchyLog.Info(report.ToString());
+            }
+            else
+            {
+                settings.Persist();
+
+                HierarchyLog.Once(
+                    "legacy-import-failed",
+                    $"Could not import the HierarchyDecorator 1.x settings at '{candidates[0]}'. " +
+                    "Retry from Tools > Hierarchy Decorator > Import Settings From 1.x.");
             }
         }
 
@@ -129,19 +141,7 @@ namespace HierarchyDecorator
 
             for (int i = 0; i < files.Length; i++)
             {
-                string text;
-
-                try
-                {
-                    text = File.ReadAllText(files[i]);
-                }
-                catch (IOException)
-                {
-                    continue;
-                }
-
-                if (text.IndexOf(LegacyScriptGuid, StringComparison.Ordinal) < 0 &&
-                    text.IndexOf(LegacyClassIdentifier, StringComparison.Ordinal) < 0)
+                if (!LooksLikeLegacySettings(files[i]))
                 {
                     continue;
                 }
@@ -166,6 +166,39 @@ namespace HierarchyDecorator
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Cheap prefix test for the 1.x settings asset. Unity writes the script reference in the header, so
+        /// only the first few KB have to be read - the alternative, File.ReadAllText on every .asset in the
+        /// project, is a real cost on a large project and it ran on every domain reload until the migration
+        /// succeeded.
+        /// </summary>
+        private static bool LooksLikeLegacySettings(string absolutePath)
+        {
+            const int prefixLength = 4096;
+
+            try
+            {
+                using StreamReader reader = new StreamReader(absolutePath);
+
+                char[] buffer = new char[prefixLength];
+                int read = reader.ReadBlock(buffer, 0, prefixLength);
+
+                if (read <= 0)
+                {
+                    return false;
+                }
+
+                string prefix = new string(buffer, 0, read);
+
+                return prefix.IndexOf(LegacyScriptGuid, StringComparison.Ordinal) >= 0 ||
+                       prefix.IndexOf(LegacyClassIdentifier, StringComparison.Ordinal) >= 0;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
         }
 
         internal static bool TryMigrate(string assetPath, HierarchyDecoratorSettings settings, out Report report)

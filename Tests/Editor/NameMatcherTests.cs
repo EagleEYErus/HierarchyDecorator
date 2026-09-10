@@ -152,6 +152,33 @@ namespace HierarchyDecorator.Tests
         }
 
         [Test]
+        public void TryStripPrefix_PreservesCaseAndHonoursTheSpaceRule()
+        {
+            // The context menu strips through this path, so it must agree with what the row shows - and it
+            // must not apply the rule's text case, or "Clear Decoration" would rewrite the object's name.
+            HeaderRule rule = Literal("=");
+            rule.textCase = HeaderTextCase.Upper;
+
+            Assert.IsTrue(NameMatcher.TryStripPrefix("= Player Rig", rule, out string stripped));
+            Assert.AreEqual("Player Rig", stripped);
+
+            Assert.IsFalse(NameMatcher.TryStripPrefix("=Player", rule, out _));
+        }
+
+        [Test]
+        public void TryStripPrefix_WorksForRegexRules()
+        {
+            // 1.x bailed out of stripping entirely for regex rules, so the context menu disagreed with the
+            // drawn label.
+            HeaderRule rule = Literal("#");
+            rule.useRegex = true;
+            rule.pattern = @"#\s*";
+
+            Assert.IsTrue(NameMatcher.TryStripPrefix("#  Enemies", rule, out string stripped));
+            Assert.AreEqual("Enemies", stripped);
+        }
+
+        [Test]
         public void EmptyInputs_AreHandled()
         {
             Assert.IsFalse(NameMatcher.FindRule(null, new List<HeaderRule> { Literal("=") }).IsValid);
