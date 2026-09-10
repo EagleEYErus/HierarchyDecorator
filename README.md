@@ -159,12 +159,18 @@ preset; **Delete** removes a custom one. The five built-in presets cannot be del
 
 Which preset is active is a per-developer choice and is stored in your user settings, not in the shared file.
 
-### Components column
+### Columns
 
-Unity 6.6's Hierarchy has resizable, reorderable columns, and 2.0 registers exactly one of its own:
-**Components**, a fixed-width slot showing the same icons as the inline strip. It is **hidden by default** —
-right-click the Hierarchy's column header and tick `Components` to show it. It shares the same cache as the
-inline strip, so turning it on costs no extra component scanning.
+Unity 6.6's Hierarchy has resizable, reorderable columns, and 2.0 registers two of its own. Both are
+**hidden by default** — right-click the Hierarchy's column header and tick them to show them.
+
+**Components** shows the same icons as the inline strip, in a fixed-width slot. It shares the cache with the
+strip, so turning it on costs no extra component scanning, and it keeps working when the inline strip is
+switched off.
+
+**Children** shows how many descendants a row has, collapsed ones included. It is a single native call per
+visible row — no component scan, no traversal — and rows with no children stay blank, so the column only
+speaks where it has something to say.
 
 Active, Static, Layer, Tag, Visibility and Picking are native Unity columns in 6.6 and are enabled from the
 same menu. 2.0 does not reimplement them.
@@ -231,6 +237,26 @@ methodology and the results once they exist. The package ships a **Benchmark Sce
 builds the 100 / 1 000 / 10 000 GameObject hierarchies those measurements run against, and three
 `ProfilerMarker`s — `HierarchyDecorator.DecorateRow`, `.ScanComponents` and `.MatchHeaderRule` — so the claims
 above can be checked rather than taken on trust.
+
+---
+
+## Search
+
+Hierarchy Decorator contributes two filters to the Hierarchy's own search box:
+
+| Query | Finds |
+|---|---|
+| `hd:header` | every row rendered as a header |
+| `hd:separator` | every row rendered as a separator |
+| `hd:none` | every undecorated row |
+| `hdrule:Subheader` | every row matched by the rule named "Subheader" |
+
+They compose with Unity's own filters, so `hd:header t:Camera` or `hdrule:Section is:root` work as expected,
+and they appear in the query-builder dropdown alongside the built-in ones.
+
+Unity 6.6 already answers the other obvious questions itself - `missing:script`, `t:`, `components:`,
+`active:`, `is:root|leaf|child|static|prefab`, `prefab:`, `layer:`, `tag:` - so those are deliberately not
+duplicated.
 
 ---
 

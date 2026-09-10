@@ -46,6 +46,10 @@ Hierarchy Decorator has been rebuilt on Unity 6.6's public `Unity.Hierarchy` hie
 
 - EditMode tests for the package's pure-logic layers, including the name matcher (prefix, trailing-space and regex rules) and the YAML reader the importer uses. No test-run results are claimed for this release — not yet measured against a released Editor build.
 
+### Search
+
+- `hd:header`, `hd:separator`, `hd:none` and `hdrule:<name>` filters in the Hierarchy search box. The documented extension point for this is internal, but the GameObject node handler forwards unknown filters to `SceneQueryEngine`, which collects filters from every loaded assembly through `TypeCache` — so the public `[SceneQueryEngineFilter]` is all it takes. They compose with Unity's own filters and appear in the query-builder dropdown. `has:MissingScript` is deliberately **not** shipped: Unity already answers it with `missing:script`.
+
 ### Changed
 
 - **Active toggles** are Unity's native row toggle now. 1.x's `ToggleDrawer` is not ported.
@@ -55,6 +59,13 @@ Hierarchy Decorator has been rebuilt on Unity 6.6's public `Unity.Hierarchy` hie
 - Component enable state is read and written through the public `EditorUtility.GetObjectEnabled` / `SetObjectEnabled` instead of reflection over `Component.enabled`.
 - Header matching keeps 1.x's exact rule — `StartsWith` on the prefix plus, unless the rule opts out, a single following space — so existing scenes keep rendering as they did. The shipped defaults are `---` (separator), `=`, `-` and `+`.
 - The two divergent prefix-stripping implementations in 1.x are unified into one, so the drawn label and the matched label can no longer disagree.
+
+### Also added after the first review pass
+
+- A **Children** column: descendant count including collapsed subtrees, one native call per visible row, hidden by default.
+- Scene rows are no longer inert — `Hierarchy Decorator > Ping Scene Asset` in the context menu and the scene path in the row tooltip (upstream issue #127).
+- The settings page reports header rules whose regular expression is invalid, and component rules whose type no longer resolves. Both were previously silent.
+- The missing-script badge is drawn on `OverlayIcon`, which overlaps the object icon and costs no horizontal space, falling back to its own element when Unity is using that slot for a prefab-override indicator.
 
 ### Removed
 

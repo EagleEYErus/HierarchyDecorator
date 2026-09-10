@@ -242,11 +242,20 @@ the row, instead of 4–6× per repaint.
 while `GetLabelRect` used `Substring(len + 1)` with no trim, so the measured width and the drawn text could
 disagree. 2.0 derives the label exactly once, inside `NameMatcher`, and caches it on the row.
 
-Storing header metadata **outside** the GameObject name was investigated and rejected for 2.0: every
-Unity-6.6-native option (a component, `HideFlags`, scene-level side tables, `Hierarchy` node properties)
-either adds runtime objects to the built game, breaks prefabs, or does not round-trip through scene
-serialization. The name prefix is the only representation that is free, diff-able, VCS-friendly and
-migrates cleanly from 1.x. This is recorded as a known limitation, not an oversight.
+Storing header metadata **outside** the GameObject name was investigated and rejected for 2.0.
+
+The tempting option is Unity 6.6's own node properties - `Hierarchy.GetOrCreatePropertyString(name)` and
+`HierarchyCommandList.SetProperty` are public, and `HierarchyPropertyString.SetValue` guards only against a
+null or disposed hierarchy, so a third party genuinely can write to the editor's live hierarchy. The reason
+not to is lifetime, and it is decisive: `HierarchyWindow.OnEnable` unconditionally constructs a **new**
+`Hierarchy`, and `OnDisable` disposes it. The entire property store is therefore destroyed on every domain
+reload, and again on every prefab-stage enter, exit and reload - and it is per-window, so two open Hierarchy
+windows would not agree. It is a render-time scratchpad, not storage.
+
+The remaining options - a component, `HideFlags`, a scene-level side table - each add runtime objects to the
+built game, break prefab workflows, or do not round-trip through scene serialization. The name prefix is the
+only representation that is free, diff-able, VCS-friendly and migrates cleanly from 1.x. Recorded as a known
+limitation, not an oversight.
 
 ### D10 — Do not reimplement native columns
 
@@ -309,6 +318,13 @@ a custom badge - are recorded as post-2.0 work in the release notes rather than 
 | Subclass / replace `HierarchyGameObjectHandler` | `OnBindItem` etc. are `protected virtual` on a handler you can only register for **your own** node type. Unity's GameObject handler cannot be replaced. The static events are the supported path. |
 | Store header metadata in a component or side asset | Adds runtime objects, breaks prefab workflows, or does not survive scene serialization. See D9. |
 | Custom Layer/Tag drawing | Native columns do it better. See D10. |
+| Node properties as header storage | Writable, but the store is destroyed on every domain reload and every prefab-stage change, and it is per-window. See D9. |
+| Custom `HierarchyNodeTypeHandler` (virtual folders, script rows as virtual children) | Both registration entry points - `HierarchyWindowManager.RegisterNodeTypeHandler<T>` and its `Type` overload - are `internal`. Not reachable. |
+| `IHierarchySearchPropositionProvider` | `internal`. The search integration ships through the public `[SceneQueryEngineFilter]` instead, which the GameObject handler already forwards to. |
+| A `has:MissingScript` search filter | Unity already ships `missing:script`. |
+| Per-object custom icons | Already native: Unity's own bind path calls `EditorGUIUtility.GetIconForObject` and it wins over the component icon. Competing with it would also override the user's icon-mode preference, which is `internal` and unreadable. |
+| An isolate/focus mode built on `HierarchyNodeFlags.Hidden` | `Hide`/`Show` are public, but Unity ships no "show all" of its own and the flag state is persisted - a failed restore would leave objects missing from the Hierarchy with no built-in way back. Revisit only with a guaranteed escape hatch. |
+| A Warnings column | It would be a second, hidden-by-default rendering of the missing-script badge, which is already always visible. |
 | `:nth-child` USS for zebra rows | UI Toolkit USS does not support structural pseudo-classes. Row parity is toggled from C# instead. |
 
 ---
