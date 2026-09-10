@@ -44,7 +44,7 @@ Hierarchy Decorator has been rebuilt on Unity 6.6's public `Unity.Hierarchy` hie
 
 **Tests**
 
-- EditMode tests for the package's pure-logic layers, including the name matcher (prefix, trailing-space and regex rules) and the YAML reader the importer uses. No test-run results are claimed for this release — not yet measured against a released Editor build.
+- An EditMode suite over the package's pure-logic layers: the name matcher (prefix, trailing-space and regex rules), the YAML reader the importer uses, the 1.x migration, the decoration cache, the `ObjectChangeKind` mapping, the component catalog, the settings schema and presets, and the search filters. 61 tests, run against Unity 6000.6.0f1 (`total=64 passed=61 failed=0`; the three skipped are the `[Explicit]` benchmarks below).
 
 ### Search
 
@@ -115,7 +115,8 @@ Not verified: UI Toolkit's own layout and repaint cost while scrolling, which ne
 
 ### Performance
 
-- No timings are claimed for 2.0.0 — **not yet measured**. The intended methodology is a generated 100 / 1k / 10k GameObject scene with bind and scroll cost sampled by the Profiler; the **Benchmark Scene Generator** sample builds those scenes, and the `HierarchyDecorator.DecorateRow`, `.ScanComponents` and `.MatchHeaderRule` profiler markers are shipped so the cache can be verified rather than assumed.
+- Cache fill measured on Unity 6000.6.0f1 / Apple M1 Pro, headless and reproducible from a committed `[Explicit]` test — see [PERFORMANCE.md §6.0](PERFORMANCE.md). Cold **~1.4 µs per row**, warm **~0.1 µs per row**, **~315 bytes** per cached row; a full screen of ~60 rows costs about **0.08 ms** the first time it scrolls into view and about **0.006 ms** on the way back. The benchmark fails if a warm pass is not far cheaper than a cold one, so bypassing the cache cannot pass silently.
+- UI Toolkit's own layout and repaint cost while scrolling is **not measured** — it needs an interactive Profiler session, and PERFORMANCE.md §6.1 onward are left as empty procedure. The **Benchmark Scene Generator** sample builds the 100 / 1k / 10k scenes for it, and the `HierarchyDecorator.DecorateRow`, `.ScanComponents` and `.MatchHeaderRule` profiler markers are shipped so the cache can be verified rather than assumed.
 
 ### Migration
 

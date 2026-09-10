@@ -1,9 +1,10 @@
 # Hierarchy Decorator 2.0 — Performance
 
-**Status of the numbers in this document: nothing has been measured yet.** Every result cell below reads
-`not measured` - see §6, where the cache-fill benchmark has been run and the interactive scroll benchmark has
-not. This file exists to fix the design claims, the cost model and the benchmark procedure *before*
-any number is produced, so that the first run has something to be checked against.
+**Status of the numbers in this document:** the cache-fill benchmark of §6.0 has been run and its results
+are recorded there. The interactive scroll and frame-time benchmarks of §6.1 onward have **not** been run -
+every result cell there still reads `not measured`, because they need an interactive editor and the Profiler.
+The design claims, the cost model and the benchmark procedure are fixed here first, so that each run has
+something to be checked against.
 
 Scope: the Editor decoration path only (`Editor/**`). Companion documents: [ARCHITECTURE.md](ARCHITECTURE.md)
 for the design decisions this file measures, [CHANGELOG.md](CHANGELOG.md) for what changed.
