@@ -18,6 +18,12 @@ namespace HierarchyDecorator
         private static readonly HashSet<EntityId> s_Dirty = new HashSet<EntityId>();
         private static bool s_GlobalReset;
 
+        /// <summary>
+        /// Set when an object-change batch already re-decorated the visible rows. Most structural edits raise
+        /// both changesPublished and hierarchyChanged, and doing the work twice in one tick is pure waste.
+        /// </summary>
+        private static bool s_HandledThisTick;
+
         internal static void OnChangesPublished(ref ObjectChangeEventStream stream)
         {
             s_Dirty.Clear();
@@ -74,9 +80,8 @@ namespace HierarchyDecorator
                     case ObjectChangeKind.DestroyAssetObject:
                     case ObjectChangeKind.ChangeAssetObjectProperties:
                     {
-                        // A component icon can be a project asset (custom script icon). Cheapest correct
-                        // answer is to re-resolve icons; the tree structure is untouched.
-                        DecorationCache.InvalidateAll(CacheFacet.Components);
+                        // A component icon can be a project asset (custom script icon), so every resolved
+                        // icon has to be re-fetched. The global reset below already does that.
                         s_GlobalReset = true;
                         break;
                     }
@@ -87,12 +92,14 @@ namespace HierarchyDecorator
             {
                 DecorationCache.Clear();
                 DecoratorHost.RefreshAllLiveRows();
+                s_HandledThisTick = true;
                 return;
             }
 
             if (s_Dirty.Count > 0)
             {
                 DecoratorHost.RefreshLiveRows(s_Dirty);
+                s_HandledThisTick = true;
             }
         }
 
@@ -106,7 +113,8 @@ namespace HierarchyDecorator
 
             switch (target)
             {
-                case GameObject gameObject:
+                case GameObject:
+                    // Covers renames, which are the only property change that alters a header match.
                     DecorationCache.Invalidate(entityId, CacheFacet.Name);
                     s_Dirty.Add(entityId);
                     break;
@@ -131,6 +139,12 @@ namespace HierarchyDecorator
             // Coarse safety net only: ObjectChangeEvents is the primary mechanism. Anything that reached
             // here without producing an object-change event still needs live rows re-derived, but the cache
             // itself stays warm.
+            if (s_HandledThisTick)
+            {
+                s_HandledThisTick = false;
+                return;
+            }
+
             DecoratorHost.RefreshAllLiveRows();
         }
 
@@ -138,6 +152,7 @@ namespace HierarchyDecorator
         {
             s_Dirty.Clear();
             s_GlobalReset = false;
+            s_HandledThisTick = false;
             DecorationCache.Clear();
             ComponentCatalog.Invalidate();
             NameMatcher.ClearRegexCache();

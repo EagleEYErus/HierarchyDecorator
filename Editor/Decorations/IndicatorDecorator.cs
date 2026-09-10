@@ -17,8 +17,6 @@ namespace HierarchyDecorator
 
         public string Id => "indicators";
 
-        public CacheFacet RequiredFacets => CacheFacet.Components;
-
         public void Apply(in RowContext context)
         {
             VisualElement host = context.Item.LeftCustomContainer;

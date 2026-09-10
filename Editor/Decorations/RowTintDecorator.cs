@@ -15,8 +15,6 @@ namespace HierarchyDecorator
     {
         public string Id => "row-tint";
 
-        public CacheFacet RequiredFacets => CacheFacet.None;
-
         public void Apply(in RowContext context)
         {
             VisualElement row = context.Item.RowContainer;

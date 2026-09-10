@@ -78,16 +78,5 @@ namespace HierarchyDecorator
                 showTreeLines = false
             });
         }
-
-        /// <summary>
-        /// Components that carry no information when shown on every single row.
-        /// Used to seed the rule list the first time the icon settings are opened.
-        /// </summary>
-        public static readonly string[] NoisyBuiltInComponents =
-        {
-            "UnityEngine.Transform",
-            "UnityEngine.RectTransform",
-            "UnityEngine.CanvasRenderer"
-        };
     }
 }

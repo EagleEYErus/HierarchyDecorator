@@ -12,17 +12,23 @@ namespace HierarchyDecorator
     /// happened once in <see cref="DecorationCache"/>. This method only writes styles onto pooled elements.
     /// The one live read is the component's enabled state, which is a single native call per icon and must be
     /// current: caching it would make the fade lag behind the Inspector checkbox.
+    ///
+    /// The strip has a fixed two-child layout - an icon container and the overflow label - so icon <c>i</c>
+    /// is always <c>icons[i]</c>. Mixing the label in with the icons would desynchronise those indices from
+    /// the cached icon array the first time a row overflowed.
     /// </summary>
     internal sealed class ComponentIconDecorator : IRowDecorator
     {
         private const string StripName = "hd-component-icons";
+        private const string IconsName = "hd-icons";
         private const string OverflowName = "hd-icon-overflow";
+
+        private const int IconsIndex = 0;
+        private const int OverflowIndex = 1;
 
         private const float DisabledOpacity = 0.4f;
 
         public string Id => "component-icons";
-
-        public CacheFacet RequiredFacets => CacheFacet.Components;
 
         public void Apply(in RowContext context)
         {
@@ -44,7 +50,7 @@ namespace HierarchyDecorator
 
             VisualElement strip = RowElements.Find<VisualElement>(host, StripName);
 
-            if (!active || context.Data.IconCount == 0 && context.Data.OverflowCount == 0)
+            if (!active || (context.Data.IconCount == 0 && context.Data.OverflowCount == 0))
             {
                 RowElements.SetVisible(strip, false);
                 return;
@@ -53,17 +59,14 @@ namespace HierarchyDecorator
             strip ??= CreateStrip(host);
             strip.style.display = DisplayStyle.Flex;
 
+            VisualElement icons = strip[IconsIndex];
             int required = context.Data.IconCount;
-            EnsureIconElements(strip, required);
 
-            for (int i = 0; i < strip.childCount; i++)
+            EnsureIconElements(icons, required);
+
+            for (int i = 0; i < icons.childCount; i++)
             {
-                VisualElement element = strip[i];
-
-                if (element.name == OverflowName)
-                {
-                    continue;
-                }
+                VisualElement element = icons[i];
 
                 if (i >= required)
                 {
@@ -75,7 +78,7 @@ namespace HierarchyDecorator
                 BindIcon(element, in context, i, options);
             }
 
-            UpdateOverflow(strip, context.Data.OverflowCount);
+            UpdateOverflow(strip, options.showOverflowIndicator ? context.Data.OverflowCount : 0);
         }
 
         private static void BindIcon(VisualElement element, in RowContext context, int index, ComponentIconSettings options)
@@ -129,29 +132,12 @@ namespace HierarchyDecorator
 
         private static void UpdateOverflow(VisualElement strip, int overflowCount)
         {
-            Label overflow = RowElements.Find<Label>(strip, OverflowName);
+            Label overflow = (Label)strip[OverflowIndex];
 
             if (overflowCount <= 0)
             {
-                RowElements.SetVisible(overflow, false);
+                overflow.style.display = DisplayStyle.None;
                 return;
-            }
-
-            if (overflow == null)
-            {
-                overflow = new Label
-                {
-                    name = OverflowName,
-                    pickingMode = PickingMode.Ignore
-                };
-
-                overflow.AddToClassList("hd-icon-overflow");
-                strip.Add(overflow);
-            }
-            else
-            {
-                // Keep it last so it always reads as a suffix.
-                overflow.BringToFront();
             }
 
             overflow.style.display = DisplayStyle.Flex;
@@ -162,23 +148,28 @@ namespace HierarchyDecorator
         private static VisualElement CreateStrip(VisualElement host)
         {
             VisualElement strip = IconElements.CreateStrip(StripName);
+
+            // Fixed layout: icons first, then the overflow suffix. Both are created up front so their child
+            // indices never move.
+            strip.Add(IconElements.CreateStrip(IconsName));
+
+            Label overflow = new Label
+            {
+                name = OverflowName,
+                pickingMode = PickingMode.Ignore
+            };
+
+            overflow.AddToClassList("hd-icon-overflow");
+            overflow.style.display = DisplayStyle.None;
+            strip.Add(overflow);
+
             host.Add(strip);
             return strip;
         }
 
-        private static void EnsureIconElements(VisualElement strip, int required)
+        private static void EnsureIconElements(VisualElement icons, int required)
         {
-            int existing = 0;
-
-            for (int i = 0; i < strip.childCount; i++)
-            {
-                if (strip[i].name != OverflowName)
-                {
-                    existing++;
-                }
-            }
-
-            for (int i = existing; i < required; i++)
+            for (int i = icons.childCount; i < required; i++)
             {
                 VisualElement icon = IconElements.CreateIcon("hd-component-icon-" + i, interactive: true);
 
@@ -186,7 +177,7 @@ namespace HierarchyDecorator
                 // every bind. The bound component travels in userData.
                 icon.RegisterCallback<PointerDownEvent>(OnIconPointerDown);
 
-                strip.Insert(strip.childCount, icon);
+                icons.Add(icon);
             }
         }
 

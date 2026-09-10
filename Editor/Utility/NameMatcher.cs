@@ -86,9 +86,44 @@ namespace HierarchyDecorator
                 : TryMatchLiteral(name, rule, out label);
         }
 
+        /// <summary>
+        /// Removes the prefix a rule matches, preserving the original case. Returns false when the rule does
+        /// not match.
+        ///
+        /// This is the single stripping implementation. 1.x had two that disagreed - the drawn label used
+        /// <c>Substring(len).Trim()</c> while the width measurement used <c>Substring(len + 1)</c> with no
+        /// trim - so a header could be measured at one width and drawn at another.
+        /// </summary>
+        public static bool TryStripPrefix(string name, HeaderRule rule, out string stripped)
+        {
+            stripped = null;
+
+            if (string.IsNullOrEmpty(name) || rule == null || string.IsNullOrEmpty(rule.pattern))
+            {
+                return false;
+            }
+
+            return rule.useRegex
+                ? TryStripRegex(name, rule, out stripped)
+                : TryStripLiteral(name, rule, out stripped);
+        }
+
         private static bool TryMatchLiteral(string name, HeaderRule rule, out string label)
         {
             label = null;
+
+            if (!TryStripLiteral(name, rule, out string stripped))
+            {
+                return false;
+            }
+
+            label = ApplyCase(rule.keepPrefixInLabel ? name : stripped, rule.textCase);
+            return true;
+        }
+
+        private static bool TryStripLiteral(string name, HeaderRule rule, out string stripped)
+        {
+            stripped = null;
 
             string prefix = rule.pattern;
 
@@ -106,17 +141,26 @@ namespace HierarchyDecorator
                 }
             }
 
-            label = rule.keepPrefixInLabel
-                ? name
-                : name.Substring(prefix.Length).Trim();
-
-            label = ApplyCase(label, rule.textCase);
+            stripped = name.Substring(prefix.Length).Trim();
             return true;
         }
 
         private static bool TryMatchRegex(string name, HeaderRule rule, out string label)
         {
             label = null;
+
+            if (!TryStripRegex(name, rule, out string stripped))
+            {
+                return false;
+            }
+
+            label = ApplyCase(rule.keepPrefixInLabel ? name : stripped, rule.textCase);
+            return true;
+        }
+
+        private static bool TryStripRegex(string name, HeaderRule rule, out string stripped)
+        {
+            stripped = null;
 
             Regex regex = GetRegex(rule.pattern);
 
@@ -141,12 +185,6 @@ namespace HierarchyDecorator
                 return false;
             }
 
-            if (rule.keepPrefixInLabel)
-            {
-                label = ApplyCase(name, rule.textCase);
-                return true;
-            }
-
             if (match.Groups.Count > 1)
             {
                 s_Builder.Clear();
@@ -156,14 +194,13 @@ namespace HierarchyDecorator
                     s_Builder.Append(match.Groups[i].Value);
                 }
 
-                label = s_Builder.ToString().Trim();
+                stripped = s_Builder.ToString().Trim();
             }
             else
             {
-                label = name.Substring(match.Length).Trim();
+                stripped = name.Substring(match.Length).Trim();
             }
 
-            label = ApplyCase(label, rule.textCase);
             return true;
         }
 

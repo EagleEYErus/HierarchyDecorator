@@ -33,7 +33,7 @@ namespace HierarchyDecorator.Tests
                 "  - prefix: +\n" +
                 "    fontSize: 10\n");
 
-            var styles = root["styleData"]["styles"].Items;
+            System.Collections.Generic.IReadOnlyList<YamlNode> styles = root["styleData"]["styles"].Items;
 
             Assert.AreEqual(2, styles.Count);
             Assert.AreEqual("=", styles[0]["prefix"].AsString());

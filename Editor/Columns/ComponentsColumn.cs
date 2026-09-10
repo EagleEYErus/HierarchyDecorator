@@ -65,7 +65,10 @@ namespace HierarchyDecorator
             }
 
             HierarchyDecoratorSettings settings = HierarchyDecoratorSettings.instance;
-            EntityId id = gameObject.GetEntityId();
+
+            // Resolved through the view, exactly as DecoratorHost does, so the column and the inline strip
+            // are guaranteed to share one cache entry rather than building two.
+            EntityId id = cell.View.Source.GetEntityIdFromNode(cell.Node);
 
             RowData data = DecorationCache.GetOrCreate(id);
             DecorationCache.Ensure(data, gameObject, settings, CacheFacet.Components);

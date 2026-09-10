@@ -171,9 +171,13 @@ namespace HierarchyDecorator.Tests
 
             int headerCount = scope.Settings.HeaderRules.Count;
 
+            // A rule the user turned off must stay off: a preset applies a style, it does not restore content.
+            scope.Settings.HeaderRules[1].enabled = false;
+
             BuiltInPresets.Find(BuiltInPresets.DebugName).ApplyTo(scope.Settings);
 
             Assert.AreEqual(headerCount, scope.Settings.HeaderRules.Count, "A preset must not add or remove header rules.");
+            Assert.IsFalse(scope.Settings.HeaderRules[1].enabled, "A preset must not re-enable a rule the user disabled.");
             Assert.AreEqual(1, scope.Settings.ComponentRules.Count, "A preset must not touch component rules.");
         }
 

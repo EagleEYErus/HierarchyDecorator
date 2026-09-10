@@ -70,7 +70,7 @@ namespace HierarchyDecorator
                 }
 
                 int index = Data.HeaderRuleIndex;
-                return index < Settings.HeaderRules.Count ? Settings.HeaderRules[index] : null;
+                return index >= 0 && index < Settings.HeaderRules.Count ? Settings.HeaderRules[index] : null;
             }
         }
     }
@@ -88,9 +88,6 @@ namespace HierarchyDecorator
     {
         /// <summary>Stable id used for error isolation and the emergency disable list.</summary>
         string Id { get; }
-
-        /// <summary>Cache facets this decorator reads. The host fills them before calling <see cref="Apply"/>.</summary>
-        CacheFacet RequiredFacets { get; }
 
         void Apply(in RowContext context);
     }

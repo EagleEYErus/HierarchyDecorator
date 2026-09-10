@@ -75,8 +75,11 @@ namespace HierarchyDecorator
         }
 
         /// <summary>
-        /// Builds the MonoScript GUID index. This walks the AssetDatabase, so it is only ever triggered from
-        /// the settings UI - never from the hierarchy render path.
+        /// Builds the MonoScript GUID index by walking the AssetDatabase.
+        ///
+        /// It is bounded rather than cheap: built at most once per domain, and only reached when a rule has
+        /// to be resolved - which happens once per settings revision when the rule table is rebuilt, and from
+        /// the settings UI. It is never on the per-row path.
         /// </summary>
         private static void EnsureScriptIndex()
         {

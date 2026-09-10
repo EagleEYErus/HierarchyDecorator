@@ -164,7 +164,11 @@ namespace HierarchyDecorator
             Undo.CollapseUndoOperations(group);
         }
 
-        /// <summary>Removes whichever rule prefix currently matches, so converting between styles is lossless.</summary>
+        /// <summary>
+        /// Removes whichever rule prefix currently matches, so converting between styles is lossless.
+        /// Goes through the same stripping path the renderer uses, so the result always matches the label
+        /// the user was looking at.
+        /// </summary>
         private static string StripAnyPrefix(string name, HierarchyDecoratorSettings settings)
         {
             NameMatcher.Match match = NameMatcher.FindRule(name, settings.HeaderRules);
@@ -176,13 +180,12 @@ namespace HierarchyDecorator
 
             HeaderRule rule = settings.HeaderRules[match.RuleIndex];
 
-            if (rule.useRegex)
+            if (!NameMatcher.TryStripPrefix(name, rule, out string stripped) || string.IsNullOrEmpty(stripped))
             {
                 return name;
             }
 
-            string stripped = name.Substring(rule.pattern.Length).Trim();
-            return string.IsNullOrEmpty(stripped) ? name : stripped;
+            return stripped;
         }
 
         private static string SanitiseMenuLabel(string label)

@@ -19,8 +19,6 @@ namespace HierarchyDecorator
     {
         public string Id => "headers";
 
-        public CacheFacet RequiredFacets => CacheFacet.Name;
-
         public void Apply(in RowContext context)
         {
             Label label = context.Item.Name;
@@ -80,7 +78,10 @@ namespace HierarchyDecorator
 
             if (context.Item.RightCustomContainer != null)
             {
-                context.Item.RightCustomContainer.style.flexGrow = rule.showComponentIcons ? 1f : 0f;
+                // The right container normally absorbs the slack, which would leave a centred header
+                // centred over half the row. Giving the slack to the label instead centres it over the whole
+                // row, and the icon strip still pins itself to the right because it keeps its content size.
+                context.Item.RightCustomContainer.style.flexGrow = 0f;
             }
 
             // A centred marker reads better without the GameObject icon; a left-aligned one keeps it so the

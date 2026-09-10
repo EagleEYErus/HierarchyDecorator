@@ -71,6 +71,13 @@ namespace HierarchyDecorator
 
             if (s_Rows.Count >= MaxEntries)
             {
+                // No eviction policy: a scene this large is outside what the cache was sized for, and a
+                // silent refill loop would look like a performance mystery rather than a known limit.
+                HierarchyLog.Once(
+                    "cache-ceiling",
+                    $"The decoration cache reached its {MaxEntries} entry ceiling and was cleared. " +
+                    "Decorations still work, but rows will be recomputed more often in scenes this large.");
+
                 Clear();
             }
 

@@ -253,6 +253,11 @@ namespace HierarchyDecorator
             }
         }
 
+        /// <summary>
+        /// Which facets to fill before dispatching. This is derived from settings rather than from the
+        /// decorator list on purpose: the component slice is the only expensive facet, and whether anything
+        /// needs it depends on the user's configuration, not on which decorators exist.
+        /// </summary>
         private static CacheFacet RequiredFacets(HierarchyDecoratorSettings settings)
         {
             CacheFacet facets = CacheFacet.Name;

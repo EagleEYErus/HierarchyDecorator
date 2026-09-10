@@ -5,15 +5,17 @@ using UnityEngine;
 namespace HierarchyDecorator
 {
     /// <summary>
-    /// A named snapshot of the feature toggles. Presets deliberately do not capture the header rules or the
-    /// per-component rules: those are content a team authors, not a visual style.
+    /// A named snapshot of the feature toggles.
+    ///
+    /// Presets deliberately never touch the header rules or the per-component rules - not their content and
+    /// not their enabled flags. Those are content a team authors; a preset that silently re-enabled a rule
+    /// someone had turned off would be destroying work, not applying a style.
     /// </summary>
     [Serializable]
     public class Preset
     {
         public string name = "New Preset";
 
-        public bool headers = true;
         public bool treeLines = true;
         public bool treeLinesFullDepth = true;
         public bool treeLineConnector = true;
@@ -39,11 +41,6 @@ namespace HierarchyDecorator
             if (settings == null)
             {
                 return;
-            }
-
-            foreach (HeaderRule rule in settings.HeaderRules)
-            {
-                rule.enabled = headers;
             }
 
             TreeLineSettings lines = settings.TreeLines;
@@ -75,7 +72,6 @@ namespace HierarchyDecorator
             return new Preset
             {
                 name = presetName,
-                headers = HasAnyEnabledHeader(settings),
                 treeLines = lines.enabled,
                 treeLinesFullDepth = lines.fullDepth,
                 treeLineConnector = lines.showConnector,
@@ -91,19 +87,6 @@ namespace HierarchyDecorator
                 clickAction = icons.clickAction,
                 missingScriptIndicator = settings.Indicators.showMissingScripts
             };
-        }
-
-        private static bool HasAnyEnabledHeader(HierarchyDecoratorSettings settings)
-        {
-            for (int i = 0; i < settings.HeaderRules.Count; i++)
-            {
-                if (settings.HeaderRules[i].enabled)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 
@@ -122,7 +105,6 @@ namespace HierarchyDecorator
             new Preset
             {
                 name = MinimalName,
-                headers = true,
                 treeLines = true,
                 treeLinesFullDepth = false,
                 treeLineConnector = false,
@@ -136,7 +118,6 @@ namespace HierarchyDecorator
             new Preset
             {
                 name = CleanName,
-                headers = true,
                 treeLines = true,
                 treeLinesFullDepth = true,
                 treeLineConnector = true,
@@ -154,7 +135,6 @@ namespace HierarchyDecorator
             new Preset
             {
                 name = DeveloperName,
-                headers = true,
                 treeLines = true,
                 treeLinesFullDepth = true,
                 treeLineConnector = true,
@@ -173,7 +153,6 @@ namespace HierarchyDecorator
             new Preset
             {
                 name = DesignerName,
-                headers = true,
                 treeLines = true,
                 treeLinesFullDepth = true,
                 treeLineConnector = true,
@@ -188,7 +167,6 @@ namespace HierarchyDecorator
             new Preset
             {
                 name = DebugName,
-                headers = true,
                 treeLines = true,
                 treeLinesFullDepth = true,
                 treeLineConnector = true,

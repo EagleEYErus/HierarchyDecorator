@@ -97,6 +97,9 @@ namespace HierarchyDecorator
             {
                 settings.LegacyMigrationCompleted = true;
                 settings.MarkChanged();
+
+                // This runs on delayCall, so rows may already be bound with pre-import decoration.
+                DecoratorHost.RefreshAllLiveRows();
                 HierarchyLog.Info(report.ToString());
             }
         }
@@ -291,8 +294,9 @@ namespace HierarchyDecorator
 
             RowSettings rows = settings.Rows;
 
-            // Unity 6.6 draws alternating rows natively, so this only carries over when the user had
-            // customised the colours away from 1.x's defaults.
+            // Carried over verbatim. Unity 6.6 draws alternating rows itself, so 2.0 defaults this off - but
+            // a project that had two-tone backgrounds on chose those colours deliberately, and silently
+            // dropping them would be the migration losing user intent.
             rows.overrideAlternatingColors = styleData["twoToneBackground"].AsBool(false);
 
             YamlNode light = styleData["lightMode"];

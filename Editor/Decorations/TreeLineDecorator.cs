@@ -38,8 +38,6 @@ namespace HierarchyDecorator
 
         public string Id => "tree-lines";
 
-        public CacheFacet RequiredFacets => CacheFacet.Name;
-
         public void Apply(in RowContext context)
         {
             // The container is added to the item itself rather than to .hierarchy-item__container: the item
