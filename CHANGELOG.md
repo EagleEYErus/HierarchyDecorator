@@ -60,6 +60,21 @@ Hierarchy Decorator has been rebuilt on Unity 6.6's public `Unity.Hierarchy` hie
 - Header matching keeps 1.x's exact rule — `StartsWith` on the prefix plus, unless the rule opts out, a single following space — so existing scenes keep rendering as they did. The shipped defaults are `---` (separator), `=`, `-` and `+`.
 - The two divergent prefix-stripping implementations in 1.x are unified into one, so the drawn label and the matched label can no longer disagree.
 
+### Second review pass
+
+- Deleting every header rule now sticks. The defaults were re-seeded whenever the list was empty, so a team that does not use the prefix convention could not turn the feature off.
+- A settings file written by a newer version of the package is left alone and reported, instead of having its schema version silently stamped down.
+- A fresh install actually applies the preset the dropdown claims is active.
+- Custom preset names are made unique, and Delete is disabled for the built-in presets — duplicates made Apply and Delete act on the wrong one.
+- Switching the Editor theme invalidates cached component icons, which are skin-dependent.
+- The "already handled this frame" guard is a frame stamp rather than a sticky flag; it could arm on a change that never produced a hierarchy event and then swallow a real one much later.
+- Settings writes are debounced properly: dragging a slider for two seconds rewrote the whole settings file about a hundred times, and the file is flushed before a domain reload and on quit.
+- Component icon and display name are cached per type instead of resolved per instance — filling sixty rows cost hundreds of native calls and throwaway strings for a few dozen distinct types.
+- The component rule list no longer does AssetDatabase work on every keystroke, and stopped rebuilding every pooled row while filtering.
+- A centred header on a nested object is now centred where a centred header should be. The indent is a `translate`, which does not change the laid-out box, so the label drifted right by the indent — verified fixed in a live editor at three different depths.
+- The Components column respects header rules and its icons are clickable, like the inline strip.
+- Adds tests for the ObjectChangeKind mapping, built on `ObjectChangeEventStream.Builder`, so the four cache fixes above cannot silently regress (61 EditMode tests).
+
 ### Also added after the first review pass
 
 - A **Children** column: descendant count including collapsed subtrees, one native call per visible row, hidden by default.

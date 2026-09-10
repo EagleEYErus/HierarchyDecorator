@@ -119,13 +119,14 @@ Strict one-way flow. Nothing downstream ever calls upstream.
 ```
 Editor/
   Cache/        ChangeTracker, ComponentCatalog, DecorationCache, RowData
-  Columns/      ComponentsColumn
+  Columns/      ChildrenColumn, ComponentsColumn
   Core/         AssemblyInfo, DecoratorHost, HierarchyBootstrap, HierarchyContextMenu
                 HierarchyDecoratorMenu, HierarchyLog, HierarchyNodes, HierarchyTooltips
                 PackageInfo, PackagePaths, RowContext, StyleInjector
   Decorations/  ComponentIconDecorator, HeaderDecorator, IndicatorDecorator, RowTintDecorator
                 TreeLineDecorator
   Migration/    LegacyMigrator, MiniYaml
+  Search/       HierarchyDecoratorSearchFilters
   Settings/     ComponentRuleListView, DefaultSettings, HierarchyDecoratorSettings
                 HierarchyDecoratorSettingsProvider, Preset, SettingTypes
   UI/           HierarchyDecorator.uss, HierarchyDecoratorSettings.uss
@@ -204,11 +205,21 @@ indirection of 1.x, and answers upstream issue #25 (team-shared vs per-user sett
 
 ### D6 — Versioned schema with a real migration chain
 
-Every settings object starts with `[SerializeField] int m_SchemaVersion`. `OnAfterDeserialize` runs an ordered,
-side-effect-free `v(n) → v(n+1)` chain. Field renames use `[FormerlySerializedAs]`; serialized type renames use
-`[MovedFrom]`. Polymorphic data uses `[SerializeReference]` and is checked with
-`SerializationUtility.HasManagedReferencesWithMissingTypes` so a missing type surfaces a warning instead of
-silently deleting user configuration.
+Both settings objects start with `[SerializeField] int m_SchemaVersion`, and `OnAfterDeserialize` runs an
+ordered, side-effect-free `v(n) → v(n+1)` chain. The chain is empty today - 2.0.0 is schema 1 - but the seam
+exists so the first bump does not have to invent one.
+
+A **newer** schema is refused rather than migrated: Unity's deserializer has already dropped whatever fields
+this build does not understand, and stamping the version down as well would tell the newer package that the
+file is old and let it "migrate" the damage in. The file is left untouched and the mismatch is reported once.
+
+Field renames are the job of `[FormerlySerializedAs]` and serialized-type renames of `[MovedFrom]` when the
+first one happens; neither is needed yet, and neither is applied speculatively. There is deliberately no
+`[SerializeReference]` polymorphism in the schema: header rules and component rules are concrete types, which
+keeps the whole "missing managed reference" failure mode out of the design.
+
+The defaults are seeded behind a persisted `m_DefaultsSeeded` flag rather than inferred from an empty rule
+list, so a team that does not use the prefix convention can delete every rule and have it stay deleted.
 
 ### D7 — Component identity is stored twice
 
@@ -293,6 +304,13 @@ equivalent and the underlying data is already cached.
    decorations (the row tint, the header background, the separator line) are simply skipped for that bind;
    the name-column decorations still apply, and the next bind - which is what puts the item into a row -
    gets the full treatment.
+7. **Never write text into `item.Name`.** Unity's inline rename seeds its edit field from that Label
+   (`HierarchyViewItemName.BeginRename` does `TextField.value = Label.text`), so a decoration that rewrites it
+   is committed as the object's new name the moment the user renames the row. Header text goes into a Label of
+   our own and Unity's is hidden, still holding the truth.
+8. **The indent is a `translate`, so it does not change the laid-out box.** A label centred inside
+   `LeftContainer` therefore lands an indent's width to the right of where it looks like it should, and the
+   error grows with depth. Centred headers cancel it with an equal negative `translate`.
 
 ---
 
