@@ -64,13 +64,15 @@ namespace HierarchyDecorator
 
             int depth = HierarchyNodes.CollectAncestorContinuations(context.View, context.Node, m_Continuations);
 
-            if (depth <= 0)
+            // Past the ceiling the columns would be drawn at the wrong indents, which reads as a rendering
+            // bug rather than a missing feature. A hierarchy this deep is pathological; draw nothing.
+            if (depth <= 0 || depth > MaxDepth)
             {
                 RowElements.SetVisible(container, false);
                 return;
             }
 
-            int columns = Mathf.Min(depth, MaxDepth);
+            int columns = depth;
 
             container ??= CreateContainer(host);
             EnsureColumnElements(container, columns);

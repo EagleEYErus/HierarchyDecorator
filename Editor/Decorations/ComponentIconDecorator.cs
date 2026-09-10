@@ -101,9 +101,9 @@ namespace HierarchyDecorator
             int enabled = options.fadeDisabledComponents ? EditorUtility.GetObjectEnabled(component) : 1;
             element.style.opacity = enabled == 0 ? DisabledOpacity : 1f;
 
-            element.pickingMode = options.clickAction == ComponentClickAction.None
-                ? PickingMode.Ignore
-                : PickingMode.Position;
+            // Always pickable: PickingMode.Ignore would also kill the tooltip, and "no click action" is
+            // not the same request as "no tooltip". OnIconPointerDown returns early when the action is None.
+            element.pickingMode = PickingMode.Position;
 
             if (options.showTooltips)
             {
