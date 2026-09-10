@@ -43,9 +43,11 @@ namespace HierarchyDecorator
 
             if (row != null)
             {
+                bool hasLabel = !string.IsNullOrEmpty(context.Data.HeaderLabel);
+
                 if (isSeparator)
                 {
-                    ApplySeparatorLine(row, rule, context.IsDarkSkin);
+                    ApplySeparatorLine(row, rule, context.IsDarkSkin, hasLabel);
                 }
                 else
                 {
@@ -54,7 +56,7 @@ namespace HierarchyDecorator
 
                     if (rule.showLine)
                     {
-                        ApplySeparatorLine(row, rule, context.IsDarkSkin);
+                        ApplySeparatorLine(row, rule, context.IsDarkSkin, hasLabel);
                     }
                 }
             }
@@ -163,8 +165,12 @@ namespace HierarchyDecorator
         /// <summary>
         /// The line is a repeating background image on the row container rather than a child element, so no
         /// element is ever inserted into a container Unity owns and the line spans the full row width.
+        ///
+        /// It sits at the row's vertical centre when there is no label - the classic divider - and at the
+        /// bottom edge when there is one, because a centred line would run through the text and read as a
+        /// strikethrough.
         /// </summary>
-        private static void ApplySeparatorLine(VisualElement row, HeaderRule rule, bool isDarkSkin)
+        private static void ApplySeparatorLine(VisualElement row, HeaderRule rule, bool isDarkSkin, bool hasLabel)
         {
             Texture2D texture = LineTextures.GetStrip(rule.lineStyle, vertical: false);
 
@@ -176,7 +182,8 @@ namespace HierarchyDecorator
             row.style.unityBackgroundImageTintColor = rule.textColor.Resolve(isDarkSkin);
             row.style.backgroundRepeat = new StyleBackgroundRepeat(new BackgroundRepeat(Repeat.Repeat, Repeat.NoRepeat));
             row.style.backgroundSize = new StyleBackgroundSize(new BackgroundSize(texture.width, rule.lineThickness));
-            row.style.backgroundPositionY = new StyleBackgroundPosition(new BackgroundPosition(BackgroundPositionKeyword.Center));
+            row.style.backgroundPositionY = new StyleBackgroundPosition(
+                new BackgroundPosition(hasLabel ? BackgroundPositionKeyword.Bottom : BackgroundPositionKeyword.Center));
         }
 
         private static void ClearSeparatorLine(VisualElement row)

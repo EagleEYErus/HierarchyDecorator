@@ -62,7 +62,7 @@ namespace HierarchyDecorator
                 return;
             }
 
-            int depth = HierarchyNodes.CollectAncestorContinuations(context.View.ViewModel, context.Node, m_Continuations);
+            int depth = HierarchyNodes.CollectAncestorContinuations(context.View, context.Node, m_Continuations);
 
             if (depth <= 0)
             {

@@ -65,12 +65,26 @@ namespace HierarchyDecorator
         }
 
         /// <summary>
-        /// Depth of a node as the view lays it out. Scene/root children are depth 0; the hierarchy Root
-        /// itself is -1.
+        /// Depth of a node <b>as the view indents it</b>.
+        ///
+        /// The view model reports source depth, but the view can be rooted somewhere other than the source
+        /// root - Prefab Mode, and the "navigate into" arrow - and it then subtracts that root's depth when
+        /// indenting. Guide lines have to use the same number or they are drawn at the wrong columns.
+        /// This mirrors <c>HierarchyViewItem.CalculateIndentWidth</c>.
         /// </summary>
-        public static int GetDepth(HierarchyViewModel viewModel, HierarchyNode node)
+        public static int GetViewDepth(HierarchyView view, HierarchyNode node)
         {
-            return viewModel.GetDepth(node);
+            HierarchyViewModel viewModel = view.ViewModel;
+            int depth = viewModel.GetDepth(node);
+
+            HierarchyNode viewRoot = viewModel.GetRoot();
+
+            if (viewRoot != view.Source.Root)
+            {
+                depth -= viewModel.GetDepth(viewRoot) + 1;
+            }
+
+            return depth;
         }
 
         /// <summary>
@@ -102,9 +116,10 @@ namespace HierarchyDecorator
         ///
         /// Returns the depth of <paramref name="node"/>.
         /// </summary>
-        public static int CollectAncestorContinuations(HierarchyViewModel viewModel, HierarchyNode node, bool[] continuations)
+        public static int CollectAncestorContinuations(HierarchyView view, HierarchyNode node, bool[] continuations)
         {
-            int depth = viewModel.GetDepth(node);
+            HierarchyViewModel viewModel = view.ViewModel;
+            int depth = GetViewDepth(view, node);
 
             if (depth <= 0 || continuations == null)
             {
