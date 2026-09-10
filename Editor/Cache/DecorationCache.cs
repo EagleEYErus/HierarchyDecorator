@@ -22,6 +22,25 @@ namespace HierarchyDecorator
 
         private static int s_RuleTableRevision = -1;
 
+        /// <summary>
+        /// Icon and display name depend only on the component's Type, but resolving them is a native round
+        /// trip each (and NicifyVariableName marshals a fresh string). Without this, filling 60 rows at five
+        /// components apiece cost 600 native calls and 300 throwaway strings for a few dozen distinct types.
+        /// </summary>
+        private static readonly Dictionary<Type, ComponentTypeInfo> s_TypeInfo = new Dictionary<Type, ComponentTypeInfo>(64);
+
+        private struct ComponentTypeInfo
+        {
+            public Texture2D Icon;
+            public string DisplayName;
+        }
+
+        /// <summary>Discards the per-type icon table. Icons are assets and can be reimported or destroyed.</summary>
+        public static void InvalidateTypeInfo()
+        {
+            s_TypeInfo.Clear();
+        }
+
         // The two markers that matter: everything else on the bind path is style writes.
         private static readonly ProfilerMarker s_ComponentScanMarker = new ProfilerMarker("HierarchyDecorator.ScanComponents");
         private static readonly ProfilerMarker s_NameMatchMarker = new ProfilerMarker("HierarchyDecorator.MatchHeaderRule");
@@ -30,11 +49,9 @@ namespace HierarchyDecorator
 
         public static void Clear()
         {
-            foreach (KeyValuePair<EntityId, RowData> pair in s_Rows)
-            {
-                pair.Value.ReleaseReferences();
-            }
-
+            // The dictionary is the only thing holding a RowData - RowContext is a stack-local readonly
+            // struct and the column keeps none - so dropping it already makes every entry unreachable.
+            // Walking them to null out references first protected nothing and cost O(cache).
             s_Rows.Clear();
         }
 
@@ -48,10 +65,7 @@ namespace HierarchyDecorator
 
         public static void Evict(EntityId id)
         {
-            if (s_Rows.Remove(id, out RowData data))
-            {
-                data.ReleaseReferences();
-            }
+            s_Rows.Remove(id);
         }
 
         public static void InvalidateAll(CacheFacet facets)
@@ -97,9 +111,12 @@ namespace HierarchyDecorator
                 return;
             }
 
-            if (data.SettingsRevision != settings.Revision)
+            bool isProSkin = EditorGUIUtility.isProSkin;
+
+            if (data.SettingsRevision != settings.Revision || data.WasProSkin != isProSkin)
             {
                 data.SettingsRevision = settings.Revision;
+                data.WasProSkin = isProSkin;
                 data.InvalidateAll();
             }
 
@@ -190,11 +207,13 @@ namespace HierarchyDecorator
 
                 data.EnsureIconCapacity(data.IconCount + 1);
 
+                ComponentTypeInfo info = GetTypeInfo(type, component);
+
                 data.Icons[data.IconCount] = new ComponentIconEntry
                 {
                     Component = component,
-                    Icon = AssetPreview.GetMiniThumbnail(component),
-                    DisplayName = ObjectNames.NicifyVariableName(type.Name),
+                    Icon = info.Icon,
+                    DisplayName = info.DisplayName,
                     StackCount = 1
                 };
 
@@ -213,12 +232,25 @@ namespace HierarchyDecorator
                 Array.Sort(data.Icons, 0, data.IconCount, IconNameComparer.Instance);
             }
 
-            // Clear the tail so stale Component/Texture references are not retained.
-            for (int i = data.IconCount; i < data.Icons.Length; i++)
+        }
+
+        private static ComponentTypeInfo GetTypeInfo(Type type, Component instance)
+        {
+            // The texture is a Unity object and can be destroyed by a reimport, so a cached null is re-resolved
+            // rather than trusted.
+            if (s_TypeInfo.TryGetValue(type, out ComponentTypeInfo info) && info.Icon != null)
             {
-                data.Icons[i].Component = null;
-                data.Icons[i].Icon = null;
+                return info;
             }
+
+            info = new ComponentTypeInfo
+            {
+                Icon = AssetPreview.GetMiniThumbnail(instance),
+                DisplayName = ObjectNames.NicifyVariableName(type.Name)
+            };
+
+            s_TypeInfo[type] = info;
+            return info;
         }
 
         private static int IndexOfType(RowData data, Type type)

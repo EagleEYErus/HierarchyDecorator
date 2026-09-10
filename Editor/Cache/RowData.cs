@@ -34,6 +34,12 @@ namespace HierarchyDecorator
         public CacheFacet Valid;
         public int SettingsRevision = -1;
 
+        /// <summary>
+        /// Which editor skin the cached icons were resolved for. EditorGUIUtility.IconContent and
+        /// AssetPreview return the "d_" variant on the dark skin, so a theme switch has to invalidate.
+        /// </summary>
+        public bool WasProSkin;
+
         // --- Name facet
         public string Name;
         public int HeaderRuleIndex = -1;
@@ -68,19 +74,5 @@ namespace HierarchyDecorator
             Array.Resize(ref Icons, size);
         }
 
-        /// <summary>Drops Unity object references so a cached row cannot keep destroyed wrappers alive.</summary>
-        public void ReleaseReferences()
-        {
-            for (int i = 0; i < IconCount; i++)
-            {
-                Icons[i].Component = null;
-                Icons[i].Icon = null;
-            }
-
-            IconCount = 0;
-            OverflowCount = 0;
-            MissingScriptCount = 0;
-            Valid &= ~CacheFacet.Components;
-        }
     }
 }

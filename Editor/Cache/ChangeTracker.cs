@@ -20,10 +20,12 @@ namespace HierarchyDecorator
         private static bool s_ComponentsReset;
 
         /// <summary>
-        /// Set when an object-change batch already re-decorated the visible rows. Most structural edits raise
-        /// both changesPublished and hierarchyChanged, and doing the work twice in one tick is pure waste.
+        /// The frame in which an object-change batch already re-decorated the visible rows. Most structural
+        /// edits raise both changesPublished and hierarchyChanged, and doing the work twice in one frame is
+        /// pure waste - but a sticky flag would arm on a batch that produced no hierarchyChanged at all
+        /// (a transform drag) and then swallow the next real one, possibly hours later.
         /// </summary>
-        private static bool s_HandledThisTick;
+        private static int s_HandledFrame = -1;
 
         internal static void OnChangesPublished(ref ObjectChangeEventStream stream)
         {
@@ -72,6 +74,7 @@ namespace HierarchyDecorator
                     {
                         // The object is already gone, so it cannot be identified; a cached icon Texture2D may
                         // be among the casualties.
+                        DecorationCache.InvalidateTypeInfo();
                         s_GlobalReset = true;
                         break;
                     }
@@ -89,22 +92,23 @@ namespace HierarchyDecorator
             {
                 DecorationCache.Clear();
                 DecoratorHost.RefreshAllLiveRows();
-                s_HandledThisTick = true;
+                s_HandledFrame = Time.frameCount;
                 return;
             }
 
             if (s_ComponentsReset)
             {
+                DecorationCache.InvalidateTypeInfo();
                 DecorationCache.InvalidateAll(CacheFacet.Components);
                 DecoratorHost.RefreshAllLiveRows();
-                s_HandledThisTick = true;
+                s_HandledFrame = Time.frameCount;
                 return;
             }
 
             if (s_Dirty.Count > 0)
             {
                 DecoratorHost.RefreshLiveRows(s_Dirty);
-                s_HandledThisTick = true;
+                s_HandledFrame = Time.frameCount;
             }
         }
 
@@ -178,9 +182,8 @@ namespace HierarchyDecorator
             // Coarse safety net: ObjectChangeEvents is the primary mechanism, but a change that produced no
             // undoable event still has to be picked up - and re-decorating alone would just re-read the same
             // cached values, so the facets are dropped first.
-            if (s_HandledThisTick)
+            if (s_HandledFrame == Time.frameCount)
             {
-                s_HandledThisTick = false;
                 return;
             }
 
@@ -193,8 +196,9 @@ namespace HierarchyDecorator
             s_Dirty.Clear();
             s_GlobalReset = false;
             s_ComponentsReset = false;
-            s_HandledThisTick = false;
+            s_HandledFrame = -1;
             DecorationCache.Clear();
+            DecorationCache.InvalidateTypeInfo();
             ComponentCatalog.Invalidate();
             NameMatcher.ClearRegexCache();
         }

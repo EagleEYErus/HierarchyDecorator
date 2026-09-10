@@ -27,6 +27,9 @@ namespace HierarchyDecorator
     /// </summary>
     internal sealed class HeaderDecorator : IRowDecorator
     {
+        /// <summary>Unity's HierarchyViewItem indent step; see TreeLineDecorator for where this comes from.</summary>
+        private const float IndentWidth = 14f;
+
         private const string LabelName = "hd-header-label";
         private const string RenameHookKey = "hd-rename-hook";
 
@@ -84,6 +87,20 @@ namespace HierarchyDecorator
             header.style.unityTextAlign = ToTextAnchor(rule.alignment);
             header.userData = true;
 
+            // Unity indents a row by translating LeftContainer, which does not change its laid-out box - so a
+            // label centred inside that box lands half an indent to the right of the row's real centre, and
+            // the error grows with depth. Translating the label back by the same amount cancels it exactly.
+            // Left-aligned rules keep the indent: for those, sitting under the parent is the point.
+            if (rule.alignment == HeaderAlignment.Left || context.IsFiltering)
+            {
+                header.style.translate = StyleKeyword.Null;
+            }
+            else
+            {
+                float indent = IndentWidth * Mathf.Max(0, HierarchyNodes.GetViewDepth(context.View, context.Node));
+                header.style.translate = new StyleTranslate(new Translate(-indent, 0f, 0f));
+            }
+
             // Unity's label keeps the real name; it is only hidden so the row shows ours instead.
             unityLabel.style.display = DisplayStyle.None;
 
@@ -117,6 +134,7 @@ namespace HierarchyDecorator
             if (header != null)
             {
                 header.style.display = DisplayStyle.None;
+                header.style.translate = StyleKeyword.Null;
                 header.userData = false;
                 SetStretch(header, false);
             }

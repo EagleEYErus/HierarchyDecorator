@@ -132,17 +132,7 @@ namespace HierarchyDecorator
 
         private static void UpdateOverflow(VisualElement strip, int overflowCount)
         {
-            Label overflow = (Label)strip[OverflowIndex];
-
-            if (overflowCount <= 0)
-            {
-                overflow.style.display = DisplayStyle.None;
-                return;
-            }
-
-            overflow.style.display = DisplayStyle.Flex;
-            overflow.text = "+" + overflowCount;
-            overflow.tooltip = $"{overflowCount} more component(s) hidden by the icon limit";
+            IconElements.SetOverflow((Label)strip[OverflowIndex], overflowCount);
         }
 
         private static VisualElement CreateStrip(VisualElement host)
@@ -194,7 +184,8 @@ namespace HierarchyDecorator
             return badge;
         }
 
-        private static void OnIconPointerDown(PointerDownEvent evt)
+        /// <summary>Shared with the Components column so a click means the same thing in both places.</summary>
+        internal static void OnIconPointerDown(PointerDownEvent evt)
         {
             if (evt.button != 0 || evt.currentTarget is not VisualElement element)
             {

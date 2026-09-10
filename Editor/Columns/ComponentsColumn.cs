@@ -160,7 +160,21 @@ namespace HierarchyDecorator
             s_BoundCells[cell] = id;
 
             RowData data = DecorationCache.GetOrCreate(id);
-            DecorationCache.Ensure(data, gameObject, settings, CacheFacet.Components);
+
+            // The Name facet is needed too: a header rule can suppress component icons, and the column has to
+            // agree with the inline strip on the same row.
+            DecorationCache.Ensure(data, gameObject, settings, CacheFacet.Name | CacheFacet.Components);
+
+            HeaderRule header = data.HasHeader && data.HeaderRuleIndex < settings.HeaderRules.Count
+                ? settings.HeaderRules[data.HeaderRuleIndex]
+                : null;
+
+            if (header != null && !header.showComponentIcons)
+            {
+                HideFrom(icons, 0);
+                overflow.style.display = DisplayStyle.None;
+                return;
+            }
 
             int count = data.IconCount;
             EnsureIcons(icons, count);
@@ -179,6 +193,7 @@ namespace HierarchyDecorator
                 icon.style.display = DisplayStyle.Flex;
                 icon.style.backgroundImage = entry.Icon != null ? new StyleBackground(entry.Icon) : StyleKeyword.Null;
                 icon.tooltip = settings.ComponentIcons.showTooltips ? entry.DisplayName : null;
+                icon.userData = entry.Component;
 
                 int enabled = settings.ComponentIcons.fadeDisabledComponents
                     ? EditorUtility.GetObjectEnabled(entry.Component)
@@ -191,16 +206,7 @@ namespace HierarchyDecorator
 
             int hidden = data.OverflowCount;
 
-            if (settings.ComponentIcons.showOverflowIndicator && hidden > 0)
-            {
-                overflow.style.display = DisplayStyle.Flex;
-                overflow.text = "+" + hidden;
-                overflow.tooltip = $"{hidden} more component(s) hidden by the icon limit";
-            }
-            else
-            {
-                overflow.style.display = DisplayStyle.None;
-            }
+            IconElements.SetOverflow(overflow, settings.ComponentIcons.showOverflowIndicator ? hidden : 0);
         }
 
         private static VisualElement GetStrip(HierarchyViewCell cell)
@@ -233,7 +239,12 @@ namespace HierarchyDecorator
         {
             for (int i = icons.childCount; i < count; i++)
             {
-                icons.Add(IconElements.CreateIcon("hd-column-icon-" + i, interactive: false));
+                VisualElement icon = IconElements.CreateIcon("hd-column-icon-" + i, interactive: true);
+
+                // Same handler as the inline strip: a click on an icon must mean the same thing wherever the
+                // icon is drawn.
+                icon.RegisterCallback<PointerDownEvent>(ComponentIconDecorator.OnIconPointerDown);
+                icons.Add(icon);
             }
         }
 

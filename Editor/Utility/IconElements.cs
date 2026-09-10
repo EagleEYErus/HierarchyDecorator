@@ -56,6 +56,32 @@ namespace HierarchyDecorator
             return badge;
         }
 
+        /// <summary>
+        /// Writes the "+N" suffix, skipping the work when the count has not changed. Label.text and tooltip
+        /// both compare against the value already set, so rebuilding the same two strings on every bind was
+        /// pure churn on rows that overflow.
+        /// </summary>
+        public static void SetOverflow(Label overflow, int count)
+        {
+            if (count <= 0)
+            {
+                overflow.style.display = DisplayStyle.None;
+                overflow.userData = 0;
+                return;
+            }
+
+            overflow.style.display = DisplayStyle.Flex;
+
+            if (overflow.userData is int previous && previous == count)
+            {
+                return;
+            }
+
+            overflow.userData = count;
+            overflow.text = "+" + count;
+            overflow.tooltip = count + " more component(s) hidden by the icon limit";
+        }
+
         private static void ApplySize(VisualElement element, float size)
         {
             element.style.width = size;
