@@ -118,19 +118,21 @@ Strict one-way flow. Nothing downstream ever calls upstream.
 
 ```
 Editor/
-  Core/         HierarchyBootstrap, HierarchyHooks, HierarchyNodes, RowContext, DecoratorHost, HierarchyLog
-  Cache/        DecorationCache, RowData, CacheFacets, ChangeTracker, ComponentCatalog, ComponentIconCache
-  Decorations/  IRowDecorator, HeaderDecorator, SeparatorDecorator, TreeLineDecorator,
-                RowTintDecorator, ComponentIconDecorator, IndicatorDecorator
+  Cache/        ChangeTracker, ComponentCatalog, DecorationCache, RowData
   Columns/      ComponentsColumn
-  Settings/     HierarchyDecoratorSettings (project), HierarchyDecoratorUserSettings (user),
-                HeaderRule, ComponentRule, TreeLineOptions, Preset, PresetLibrary,
-                HierarchyDecoratorSettingsProvider, HierarchyDecoratorUserSettingsProvider
-  Migration/    LegacySettingsLocator, LegacySettingsReader (YAML), LegacyMigrator
-  UI/           HierarchyDecorator.uss, HierarchyDecorator_dark.uss, HierarchyDecorator_light.uss,
-                Settings UXML/USS
-  Utility/      LineTextures, ThemeColors, NameMatcher, PooledElements
-Tests/Editor/   EditMode tests
+  Core/         AssemblyInfo, DecoratorHost, HierarchyBootstrap, HierarchyContextMenu
+                HierarchyDecoratorMenu, HierarchyLog, HierarchyNodes, HierarchyTooltips
+                PackageInfo, PackagePaths, RowContext, StyleInjector
+  Decorations/  ComponentIconDecorator, HeaderDecorator, IndicatorDecorator, RowTintDecorator
+                TreeLineDecorator
+  Migration/    LegacyMigrator, MiniYaml
+  Settings/     ComponentRuleListView, DefaultSettings, HierarchyDecoratorSettings
+                HierarchyDecoratorSettingsProvider, Preset, SettingTypes
+  UI/           HierarchyDecorator.uss, HierarchyDecoratorSettings.uss
+                HierarchyDecorator_dark.uss, HierarchyDecorator_light.uss
+  Utility/      IconElements, LineTextures, NameMatcher, RowElements
+Tests/Editor/   the EditMode suite
+Samples~/BenchmarkScenes/  scene generator for PERFORMANCE.md
 ```
 
 ---
@@ -158,19 +160,19 @@ purpose. This single decision deletes `HierarchyGUI`, `StateDrawer`, `StyleDrawe
 derivation (component enumeration, icon resolution, missing-script detection, header matching) happens once
 per row and is stored in `DecorationCache`, keyed by `EntityId`.
 
-Invalidation is driven by `UnityEditor.ObjectChangeEvents.changesPublished`, mapped **per facet**:
+Invalidation is driven by `UnityEditor.ObjectChangeEvents.changesPublished`. There are exactly two cache
+facets - `Name` (the header-rule match and its label) and `Components` (the icon slice and the missing-script
+count) - and each event kind maps to the narrowest response that is still correct:
 
-| `ObjectChangeKind` | Invalidated facet |
+| `ObjectChangeKind` | Response |
 |---|---|
-| `ChangeGameObjectStructure` | `Components` (icons + missing scripts) for that object only |
-| `ChangeGameObjectStructureHierarchy` | `Components` + `Tree` + `Name` for the object **and its subtree** |
-| `CreateGameObjectHierarchy` | insert object + subtree; `Tree` of the new parent |
-| `DestroyGameObjectHierarchy` | evict object + subtree; `Tree` of the parent |
-| `ChangeGameObjectParent` | `Tree` for object, subtree, old parent, new parent |
-| `ChangeChildrenOrder` / `ChangeRootOrder` | `Tree` only |
-| `ChangeGameObjectOrComponentProperties` | cheap O(1) revalidation only (name hash, enabled bits) — **never** a component rescan, otherwise a transform drag thrashes the cache |
-| `UpdatePrefabInstances` | `Components` + `Tree` + `Prefab` for the batch |
-| `ChangeScene` | drop that scene's bucket |
+| `ChangeGameObjectStructure` | Invalidate `Components` for that object only. This is the hot path: adding or removing a component. |
+| `ChangeGameObjectOrComponentProperties` | O(1) only. A `GameObject` target invalidates `Name` (renames); a `Component` target just marks its owner for a re-decorate so the disabled-icon fade stays current. **Never** a component rescan - this event fires on every frame of a transform drag. |
+| `UpdatePrefabInstances` | Invalidate both facets for the batch of ids the event carries. |
+| `CreateGameObjectHierarchy`, `DestroyGameObjectHierarchy`, `ChangeGameObjectStructureHierarchy`, `ChangeGameObjectParent`, `ChangeChildrenOrder`, `ChangeRootOrder`, `ChangeScene` | **Drop the whole cache.** Each of these affects a subtree, and the event names only its root - and for a destroy, the object is already gone, so the subtree cannot be walked at all. Maintaining a parent→children index purely to scope these was rejected: they are user-paced operations, and a cold cache costs one bind per *visible* row, not per scene object. |
+| `DestroyAssetObject`, `ChangeAssetObjectProperties` | Drop the whole cache: a cached icon `Texture2D` may have been destroyed, and a script's custom icon may have changed. |
+
+This is a deliberate trade: precision where the event is frequent, bluntness where it is rare.
 
 `EditorApplication.hierarchyChanged` is kept only as a coarse safety net (a version counter bump), never as
 the primary mechanism.
@@ -236,8 +238,9 @@ following space). Regex rules keep the implicit `^` anchor but are compiled once
 (`RegexOptions.Compiled | RegexOptions.CultureInvariant`) and evaluated **once per row per bind**, cached on
 the row, instead of 4–6× per repaint.
 
-1.x's two divergent prefix-stripping implementations (`DrawHierarchyStyle` used `Substring(len).Trim()`,
-`GetLabelRect` used `Substring(len + 1)` with no trim) are unified into a single `NameMatcher.StripPrefix`.
+1.x had two divergent prefix-stripping implementations - `DrawHierarchyStyle` used `Substring(len).Trim()`
+while `GetLabelRect` used `Substring(len + 1)` with no trim, so the measured width and the drawn text could
+disagree. 2.0 derives the label exactly once, inside `NameMatcher`, and caches it on the row.
 
 Storing header metadata **outside** the GameObject name was investigated and rejected for 2.0: every
 Unity-6.6-native option (a component, `HideFlags`, scene-level side tables, `Hierarchy` node properties)
@@ -277,25 +280,25 @@ equivalent and the underlying data is already cached.
    returns `null` silently rather than throwing, which is exactly why the gate comes first.
 5. **Suppress depth-based decoration while filtering.** `HierarchyViewItem.CalculateIndentWidth` early-returns
    `0` when `view.Filtering` is true and the list becomes flat, so tree lines are hidden during a search.
-6. **`item.RowContainer` may be `null`** when the item is not yet parented into a multi-column row; full-row
-   decorations degrade to the name-column container in that case.
+6. **`item.RowContainer` may be `null`** when the item is not yet parented into a multi-column row. Full-row
+   decorations (the row tint, the header background, the separator line) are simply skipped for that bind;
+   the name-column decorations still apply, and the next bind - which is what puts the item into a row -
+   gets the full treatment.
 
 ---
 
 ## 6. Extensibility
 
-`IRowDecorator` is the internal seam. It is deliberately **not** published as a supported API in 2.0.0 —
-the surface should settle first. What *is* public and documented:
+`IRowDecorator` is the internal seam: one interface, one `Apply(in RowContext)` method, and a host that owns
+dispatch and failure isolation. Adding a decoration is adding a class and one line in `DecoratorHost`.
 
-```csharp
-HierarchyDecoratorAPI.RegisterComponentIcon<T>(Texture2D icon);
-HierarchyDecoratorAPI.RegisterIndicator<T>(Func<Component, IndicatorInfo?> evaluate);
-```
+**2.0.0 ships no public extensibility API.** A registry for custom component icons or custom indicators would
+be easy to add, but it would freeze `RowContext`, `RowData` and the bind-time contract as public surface
+before any of them has been used in anger. The seam is deliberately `internal` until the shape has settled;
+publishing it later is additive, un-publishing it would not be.
 
-Both are thin registries consumed by the existing decorators, cost nothing when unused, and cannot break the
-render path (they are evaluated inside `DecoratorHost`'s isolation).
-
----
+The two things a third party would most plausibly want - overriding the icon for a component type, and adding
+a custom badge - are recorded as post-2.0 work in the release notes rather than guessed at now.
 
 ## 7. Rejected alternatives
 

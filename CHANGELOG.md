@@ -1,3 +1,85 @@
+## v2.0.0 | Unreleased — Rebuilt on the Unity 6.6 Hierarchy
+
+Hierarchy Decorator has been rebuilt on Unity 6.6's public `Unity.Hierarchy` hierarchy extension API (UI Toolkit), replacing the IMGUI row callback 1.x was written against.
+
+### Breaking Changes
+
+- Minimum Unity is now **6000.6** (`"unity": "6000.6"`). Earlier versions are not supported.
+- The **new** Hierarchy window is required. With `Project Settings > Editor > Hierarchy > Use Legacy Hierarchy` enabled, 2.0 draws nothing and logs a one-time hint explaining how to switch. The legacy IMGUI window is not supported and no IMGUI fallback is shipped.
+- Settings no longer live in `Assets/`. The shared ruleset is written to `ProjectSettings/Packages/com.wooshii.hierarchydecorator/Settings.asset` and per-developer choices to `UserSettings/Packages/com.wooshii.hierarchydecorator/UserSettings.asset`. The `Assets/HierarchyDecorator/Settings.asset` lookup, its `AssetDatabase.FindAssets("t:Settings")` search and the `EditorPrefs` GUID cache are gone.
+- The 1.x public API is removed. `HierarchyManager`, `HierarchyDrawer`, `HierarchyInfo`, `HierarchyItem`, `ComponentItem`, the `Settings` ScriptableObject, `RegisterTabAttribute` and the `GUIDrawer` settings framework no longer exist, and code written against them will not compile. 2.0 ships no public extension API: the internal `IRowDecorator` seam will only be published once it has settled.
+
+### Added
+
+**Integration**
+
+- Rendering through `HierarchyWindow.BindView` / `BindViewItem` / `UnbindViewItem`. Decorations are `VisualElement`s placed in the containers Unity exposes for that purpose (`LeftCustomContainer`, `RightCustomContainer`, `RowContainer`); nothing is painted over a finished row.
+- A per-object decoration cache keyed by `EntityId`, filled at bind time and invalidated per facet from `ObjectChangeEvents.changesPublished`. Component enumeration, icon resolution and header matching run once per row, not once per repaint.
+- Decorator error isolation: a decoration that throws is disabled for the rest of the session and logged exactly once, so a single bug can neither break the Hierarchy nor spam the console.
+- Theme-aware stylesheets (`HierarchyDecorator_dark.uss` / `_light.uss`) injected into `HierarchyView.StyleContainer` on every view bind, scoped under a marker class so they cannot leak into other windows that reuse `HierarchyView`.
+
+**Decorations**
+
+- Headers and separators from name-prefix rules, with alignment, text case, bold, font size, letter spacing, paired light/dark colors, an optional solid/dashed/dotted line and thickness, an option to keep the prefix in the label, and per-rule toggles for component icons and tree lines. Regex patterns are supported and compiled once instead of being re-evaluated per repaint.
+- Tree guide lines (1.x "breadcrumbs"): full depth or immediate parent only, optional connector, solid/dashed/dotted, opacity and a paired light/dark color. Hidden automatically while the Hierarchy search filter is active, because Unity flattens the list and drops indentation there.
+- A component icon strip at the right-hand end of the Name column: `All` or `Selected` mode, include or exclude user scripts, hide `Transform`, an icon limit with an overflow indicator, duplicate stacking, dimming for disabled components, natural or alphabetical order, tooltips, and a click action (none / select the component / toggle it enabled).
+- A missing-script badge, with the count repeated in the row tooltip.
+- An optional **Components** column — a real Unity 6.6 hierarchy column, hidden by default and enabled from the Hierarchy header menu. It shares the decoration cache with the inline strip, so turning it on costs no extra component scanning.
+- An opt-in override of the alternating row colors, per theme. Off by default, because Unity 6.6 draws alternating rows itself.
+- A Hierarchy context submenu: `Hierarchy Decorator > Convert To > <rule>`, `Clear Decoration` and `Settings...`. It acts on the selection, or on the clicked row when that row is outside the selection, and every rename is recorded for undo.
+- Row tooltips now also carry the real GameObject name behind a header label.
+
+**Settings**
+
+- Two UI Toolkit settings pages: `Project Settings > Hierarchy Decorator` for the shared ruleset, `Preferences > Hierarchy Decorator` for per-developer choices. Both are `SerializedObject`-bound, so undo behaves normally, and edits apply to the live Hierarchy as you type.
+- Presets: Minimal, Clean, Developer, Designer and Debug, plus user presets captured from the current settings. A preset covers the feature toggles only, never the header or component rules a team authors.
+- A "Displayed Components" list: every component type in the project with a three-state rule (Default / Show / Hide). A rule is stored only when it differs from the default, so a project that never touches the list writes nothing.
+- Component identity is stored twice — MonoScript GUID plus namespace-qualified type name plus assembly name — and types are enumerated with `TypeCache` rather than `AppDomain.GetTypes()`. A rule survives a class rename, namespace change or assembly rename, and repairs whichever half of the key went stale.
+- A versioned settings schema with an ordered migration chain, so a future format change does not reset configuration.
+- `Tools > Hierarchy Decorator`: `Settings...`, `Disable All Decorations`, `Re-enable Failed Decorations`, `Import Settings From 1.x`, `Reset Settings To Defaults`.
+
+**Migration**
+
+- An importer for 1.x settings. It reads the old asset as text, never modifies or deletes it, maps prefix styles to header rules and icon selections to component rules, and reports what was imported and what was skipped. It runs once automatically on first load and can be re-run from the Tools menu.
+
+**Tests**
+
+- EditMode tests for the package's pure-logic layers, including the name matcher (prefix, trailing-space and regex rules) and the YAML reader the importer uses. No test-run results are claimed for this release — not yet measured against a released Editor build.
+
+### Changed
+
+- **Active toggles** are Unity's native row toggle now. 1.x's `ToggleDrawer` is not ported.
+- **Tag and Layer display** are Unity's native, resizable and reorderable Tag and Layer columns now. 1.x's `TagLayerInfo` grid, overflow math and dropdown pickers are not ported.
+- **Alternating rows** are native and on by default. 2.0 only offers an override of the colors.
+- Selection, hover, inactive tint, prefab text colors, the prefab arrow, the prefab override bar and the foldout are drawn by Unity again; 2.0 never re-implements them.
+- Component enable state is read and written through the public `EditorUtility.GetObjectEnabled` / `SetObjectEnabled` instead of reflection over `Component.enabled`.
+- Header matching keeps 1.x's exact rule — `StartsWith` on the prefix plus, unless the rule opts out, a single following space — so existing scenes keep rendering as they did. The shipped defaults are `---` (separator), `=`, `-` and `+`.
+- The two divergent prefix-stripping implementations in 1.x are unified into one, so the drawn label and the matched label can no longer disagree.
+
+### Removed
+
+- The IMGUI renderer: `HierarchyGUI`, `StyleDrawer`'s row re-implementation, `StateDrawer`, `ToggleDrawer`, `TagLayerInfo`, `BreadcrumbsDrawer` and the static `GUIStyle` bank in `Style.cs`. A large part of that code existed only to repair the row the plugin itself had painted over.
+- The hand-rolled IMGUI settings UI (~2400 lines): `SettingsEditor`, the tab classes, `GUIDrawer` / `DrawerGroup` and the `ReorderableList` version workarounds, replaced by UI Toolkit and `SerializedObject` binding.
+- `ReflectionUtility` and the `AppDomain` type scans it fed.
+- The active-swipe toggle gesture and the scene-row highlight added in 0.12.0 are not part of 2.0.
+
+### Fixed
+
+- **#148 — does not compile on Unity 6.3+.** Those errors came from members Unity marked obsolete-as-error. 2.0 references none of them: no `EditorApplication.hierarchyWindowItemOnGUI`, no `GetInstanceID`, no `int` instance-id conversions — `EntityId` is used end to end.
+- **#144 — nothing renders under the new Hierarchy window.** 1.x drew from an IMGUI callback the new window never invokes. 2.0 draws from `HierarchyWindow.BindViewItem`, the new window's own per-row extension point, which is also why the new window is now a requirement rather than an option.
+- **#111 — the two-tone background hid the prefab override bar.** 2.0 never paints over a finished row. A header or a row tint sets a background color on the row container Unity lays out, and Unity's own override bar sits inside that row and keeps drawing on top of it.
+- **#86 — the SubScene caret was hidden.** Every decorator gates on `item.Handler is HierarchyGameObjectHandler` before touching a row, and SubScene rows use a different handler, so they are left untouched. On GameObject rows nothing is drawn over the foldout either.
+- **#119 — custom groups were lost on restart.** The group model and its rebuild-on-deserialize step are gone. Component rules are plain serialized data identified by MonoScript GUID plus namespace-qualified type name plus assembly and resolved through `TypeCache`; no load-time path can rename a rule or clear its selection.
+- **#142 — the editor hung with large selections and the two-tone background.** Two-tone is Unity's native alternating rows now, and the optional color override writes one background color per row at bind time. `BindViewItem` fires when a row scrolls into view or its data changes, not every repaint, and nothing in the render path reads `Selection`, so cost no longer scales with the size of the selection.
+
+### Performance
+
+- No timings are claimed for 2.0.0 — **not yet measured**. The intended methodology is a generated 100 / 1k / 10k GameObject scene with bind and scroll cost sampled by the Profiler; the **Benchmark Scene Generator** sample builds those scenes, and the `HierarchyDecorator.DecorateRow`, `.ScanComponents` and `.MatchHeaderRule` profiler markers are shipped so the cache can be verified rather than assumed.
+
+### Migration
+
+- Upgrading from 1.x: see [MIGRATION.md](MIGRATION.md) for the full settings mapping and for what the importer cannot carry over.
+
 ## v0.12.0
 
 ### Changes
