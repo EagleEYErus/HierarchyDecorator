@@ -125,7 +125,11 @@ namespace HierarchyDecorator
                 treeLineOpacity = 0.3f,
                 overrideRowColors = false,
                 componentIcons = true,
-                componentIconMode = ComponentIconMode.Selected,
+
+                // Built-in components only, capped short. "Selected" would mean "only what an explicit rule
+                // shows" - and with no rules stored, that is nothing at all, which is what a fresh install
+                // would have looked like.
+                componentIconMode = ComponentIconMode.All,
                 componentIconsIncludeCustomScripts = false,
                 maxIconsPerRow = 4,
                 componentTooltips = true,

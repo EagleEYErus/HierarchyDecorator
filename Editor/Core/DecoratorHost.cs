@@ -230,6 +230,12 @@ namespace HierarchyDecorator
             using ProfilerMarker.AutoScope scope = s_DecorateMarker.Auto();
 
             HierarchyDecoratorSettings settings = HierarchyDecoratorSettings.instance;
+            bool isDarkSkin = EditorGUIUtility.isProSkin;
+
+            // Cheap on the hot path (one bool compare) and the only reliable place to notice a theme switch:
+            // Unity does not necessarily rebuild the Hierarchy window when the editor skin changes.
+            StyleInjector.EnsureSkin(isDarkSkin);
+
             bool active = !s_Suspended && HierarchyDecoratorUserSettings.instance.Enabled;
 
             GameObject gameObject = null;
@@ -256,7 +262,7 @@ namespace HierarchyDecorator
                 id,
                 data,
                 settings,
-                EditorGUIUtility.isProSkin,
+                isDarkSkin,
                 view.Filtering,
                 active);
 
@@ -307,6 +313,7 @@ namespace HierarchyDecorator
             s_Live.Clear();
             s_Scratch.Clear();
             ComponentsColumn.ResetBoundCells();
+            StyleInjector.Reset();
         }
     }
 }
