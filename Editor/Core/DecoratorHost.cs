@@ -52,6 +52,8 @@ namespace HierarchyDecorator
         /// <summary>Emergency kill switch driven by Tools ▸ Hierarchy Decorator ▸ Disable All Decorations.</summary>
         private static bool s_Suspended;
 
+        private static bool s_RefreshScheduled;
+
         public static bool Suspended => s_Suspended;
 
         public static IReadOnlyCollection<string> FailedDecorators => s_Failed;
@@ -134,7 +136,14 @@ namespace HierarchyDecorator
         /// <summary>Re-runs decoration for the currently visible rows whose object changed.</summary>
         internal static void RefreshLiveRows(HashSet<EntityId> ids)
         {
-            if (ids == null || ids.Count == 0 || s_Live.Count == 0)
+            if (ids == null || ids.Count == 0)
+            {
+                return;
+            }
+
+            ComponentsColumn.RefreshBoundCells(ids);
+
+            if (s_Live.Count == 0)
             {
                 return;
             }
@@ -152,8 +161,31 @@ namespace HierarchyDecorator
             RedecorateScratch();
         }
 
+        /// <summary>
+        /// Coalesces a full refresh into the next editor tick. Used by the settings window, where a slider
+        /// drag would otherwise re-decorate every visible row once per frame.
+        /// </summary>
+        internal static void RequestRefreshAllLiveRows()
+        {
+            if (s_RefreshScheduled)
+            {
+                return;
+            }
+
+            s_RefreshScheduled = true;
+            EditorApplication.delayCall += FlushScheduledRefresh;
+        }
+
+        private static void FlushScheduledRefresh()
+        {
+            s_RefreshScheduled = false;
+            RefreshAllLiveRows();
+        }
+
         internal static void RefreshAllLiveRows()
         {
+            ComponentsColumn.RefreshBoundCells();
+
             if (s_Live.Count == 0)
             {
                 return;
@@ -274,6 +306,7 @@ namespace HierarchyDecorator
         {
             s_Live.Clear();
             s_Scratch.Clear();
+            ComponentsColumn.ResetBoundCells();
         }
     }
 }

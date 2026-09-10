@@ -17,6 +17,7 @@ namespace HierarchyDecorator
     {
         private static readonly HashSet<EntityId> s_Dirty = new HashSet<EntityId>();
         private static bool s_GlobalReset;
+        private static bool s_ComponentsReset;
 
         /// <summary>
         /// Set when an object-change batch already re-decorated the visible rows. Most structural edits raise
@@ -28,6 +29,7 @@ namespace HierarchyDecorator
         {
             s_Dirty.Clear();
             s_GlobalReset = false;
+            s_ComponentsReset = false;
 
             for (int i = 0; i < stream.length; i++)
             {
@@ -55,34 +57,29 @@ namespace HierarchyDecorator
                     case ObjectChangeKind.ChangeChildrenOrder:
                     case ObjectChangeKind.ChangeRootOrder:
                     case ObjectChangeKind.ChangeScene:
-                    {
-                        // These all affect a whole subtree, and the event only ever names its root. Rather
-                        // than maintaining a parent->children index purely to walk it, drop everything:
-                        // these are user-paced operations, and a cold cache costs one bind per visible row.
-                        s_GlobalReset = true;
-                        break;
-                    }
-
                     case ObjectChangeKind.UpdatePrefabInstances:
                     {
-                        stream.GetUpdatePrefabInstancesEvent(i, out UpdatePrefabInstancesEventArgs args);
-                        NativeArray<EntityId>.ReadOnly ids = args.entityIds;
-
-                        for (int n = 0; n < ids.Length; n++)
-                        {
-                            DecorationCache.Invalidate(ids[n], CacheFacet.All);
-                            s_Dirty.Add(ids[n]);
-                        }
-
+                        // These all affect a whole subtree, and the event only ever names its root - for
+                        // UpdatePrefabInstances, the instance roots, which says nothing about components
+                        // added to nested children. Rather than maintaining a parent->children index purely
+                        // to walk it, drop everything: these are user-paced operations, and a cold cache
+                        // costs one bind per visible row.
+                        s_GlobalReset = true;
                         break;
                     }
 
                     case ObjectChangeKind.DestroyAssetObject:
+                    {
+                        // The object is already gone, so it cannot be identified; a cached icon Texture2D may
+                        // be among the casualties.
+                        s_GlobalReset = true;
+                        break;
+                    }
+
                     case ObjectChangeKind.ChangeAssetObjectProperties:
                     {
-                        // A component icon can be a project asset (custom script icon), so every resolved
-                        // icon has to be re-fetched. The global reset below already does that.
-                        s_GlobalReset = true;
+                        stream.GetChangeAssetObjectPropertiesEvent(i, out ChangeAssetObjectPropertiesEventArgs args);
+                        MarkAssetChange(args.entityId);
                         break;
                     }
                 }
@@ -91,6 +88,14 @@ namespace HierarchyDecorator
             if (s_GlobalReset)
             {
                 DecorationCache.Clear();
+                DecoratorHost.RefreshAllLiveRows();
+                s_HandledThisTick = true;
+                return;
+            }
+
+            if (s_ComponentsReset)
+            {
+                DecorationCache.InvalidateAll(CacheFacet.Components);
                 DecoratorHost.RefreshAllLiveRows();
                 s_HandledThisTick = true;
                 return;
@@ -121,7 +126,17 @@ namespace HierarchyDecorator
 
                 case Component component when component != null:
                 {
-                    // Toggling a component's enabled checkbox reports the Component, not its GameObject.
+                    // The only component property a row reflects is the enabled checkbox, and only when the
+                    // icons are on and configured to fade. Without this gate a transform gizmo drag - which
+                    // reports the Transform once per frame - would re-decorate every visible row at 60 Hz for
+                    // no visual change at all.
+                    ComponentIconSettings icons = HierarchyDecoratorSettings.instance.ComponentIcons;
+
+                    if (!icons.enabled || !icons.fadeDisabledComponents || !HasEnabledState(component))
+                    {
+                        break;
+                    }
+
                     GameObject owner = component.gameObject;
 
                     if (owner != null)
@@ -134,17 +149,42 @@ namespace HierarchyDecorator
             }
         }
 
+        /// <summary>
+        /// Whether a component can be disabled at all. Mirrors what EditorUtility.GetObjectEnabled answers
+        /// with -1, without the native call: Transform, and most non-Behaviour components, have no checkbox.
+        /// </summary>
+        private static bool HasEnabledState(Component component)
+        {
+            return component is Behaviour or Renderer or Collider or Cloth or LODGroup;
+        }
+
+        /// <summary>
+        /// Asset edits are frequent - one per frame while a slider is dragged in the Inspector - and almost
+        /// none of them can change a hierarchy row. Only a script (its custom icon) or a texture (an icon
+        /// asset itself) can, so everything else is ignored instead of dropping the whole cache.
+        /// </summary>
+        private static void MarkAssetChange(EntityId entityId)
+        {
+            Object target = EditorUtility.EntityIdToObject(entityId);
+
+            if (target is MonoScript or Texture)
+            {
+                s_ComponentsReset = true;
+            }
+        }
+
         internal static void OnHierarchyChanged()
         {
-            // Coarse safety net only: ObjectChangeEvents is the primary mechanism. Anything that reached
-            // here without producing an object-change event still needs live rows re-derived, but the cache
-            // itself stays warm.
+            // Coarse safety net: ObjectChangeEvents is the primary mechanism, but a change that produced no
+            // undoable event still has to be picked up - and re-decorating alone would just re-read the same
+            // cached values, so the facets are dropped first.
             if (s_HandledThisTick)
             {
                 s_HandledThisTick = false;
                 return;
             }
 
+            DecorationCache.InvalidateAll(CacheFacet.All);
             DecoratorHost.RefreshAllLiveRows();
         }
 
@@ -152,6 +192,7 @@ namespace HierarchyDecorator
         {
             s_Dirty.Clear();
             s_GlobalReset = false;
+            s_ComponentsReset = false;
             s_HandledThisTick = false;
             DecorationCache.Clear();
             ComponentCatalog.Invalidate();

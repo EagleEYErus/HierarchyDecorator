@@ -150,15 +150,36 @@ namespace HierarchyDecorator
             ChangeTracker.OnHierarchyChanged();
         }
 
+        /// <summary>
+        /// Undo names this package registers on the settings object. Undo is global - it fires for every
+        /// undo anywhere in the editor - so without this gate a plain "Undo Move" would rewrite a
+        /// VCS-tracked ProjectSettings file and throw away the type index, the regex cache and the whole
+        /// decoration cache.
+        /// </summary>
+        private static readonly System.Collections.Generic.HashSet<string> s_SettingsUndoNames =
+            new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal)
+            {
+                "Apply Preset",
+                "Save Preset",
+                "Delete Preset",
+                "Change Component Rule",
+                "Clear Component Rules"
+            };
+
         private static void OnUndoRedo(in UndoRedoInfo info)
         {
-            // Settings live in a ScriptableSingleton, which is only written by an explicit Save(). An undo
-            // changes memory, so the file has to be re-written or the next domain reload would resurrect the
-            // undone value.
-            HierarchyDecoratorSettings.instance.MarkChangedWithoutSave();
-            HierarchyDecoratorSettings.instance.Persist();
-            NameMatcher.ClearRegexCache();
-            ChangeTracker.ResetAll();
+            if (s_SettingsUndoNames.Contains(info.undoName))
+            {
+                // A ScriptableSingleton is only written by an explicit Save(), so undoing a settings edit
+                // has to be re-persisted or the next domain reload resurrects the undone value.
+                HierarchyDecoratorSettings.instance.MarkChangedWithoutSave();
+                HierarchyDecoratorSettings.instance.Persist();
+                NameMatcher.ClearRegexCache();
+                DecorationCache.Clear();
+            }
+
+            // Object-level undo (a rename, a component toggle) is reported by ObjectChangeEvents, which
+            // invalidates the right facets; only the visible rows have to be re-derived here.
             DecoratorHost.RefreshAllLiveRows();
         }
 

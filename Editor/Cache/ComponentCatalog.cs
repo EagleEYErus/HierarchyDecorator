@@ -18,6 +18,29 @@ namespace HierarchyDecorator
         private static Dictionary<Type, string> s_GuidsByType;
         private static List<Type> s_AllComponentTypes;
 
+        // Assembly.GetName() builds a fresh AssemblyName every call; the settings list asks for one per
+        // visible row per keystroke.
+        private static readonly Dictionary<System.Reflection.Assembly, string> s_AssemblyNames =
+            new Dictionary<System.Reflection.Assembly, string>();
+
+        public static string AssemblyNameOf(Type type)
+        {
+            if (type == null)
+            {
+                return string.Empty;
+            }
+
+            System.Reflection.Assembly assembly = type.Assembly;
+
+            if (!s_AssemblyNames.TryGetValue(assembly, out string name))
+            {
+                name = assembly.GetName().Name;
+                s_AssemblyNames.Add(assembly, name);
+            }
+
+            return name;
+        }
+
         public static IReadOnlyList<Type> AllComponentTypes
         {
             get
@@ -33,6 +56,7 @@ namespace HierarchyDecorator
             s_TypesByName = null;
             s_GuidsByType = null;
             s_AllComponentTypes = null;
+            s_AssemblyNames.Clear();
         }
 
         private static void EnsureTypeIndex()
@@ -128,7 +152,7 @@ namespace HierarchyDecorator
 
             return new ComponentRule(
                 type.FullName,
-                type.Assembly.GetName().Name,
+                AssemblyNameOf(type),
                 FindMonoScriptGuid(type),
                 display);
         }
@@ -157,7 +181,7 @@ namespace HierarchyDecorator
                     {
                         // Self-heal: the script was renamed or moved, so refresh the name-based identity.
                         rule.typeName = scriptType.FullName;
-                        rule.assemblyName = scriptType.Assembly.GetName().Name;
+                        rule.assemblyName = AssemblyNameOf(scriptType);
                         return scriptType;
                     }
                 }
@@ -176,10 +200,10 @@ namespace HierarchyDecorator
             }
 
             if (!string.IsNullOrEmpty(rule.assemblyName) &&
-                !string.Equals(type.Assembly.GetName().Name, rule.assemblyName, StringComparison.Ordinal))
+                !string.Equals(AssemblyNameOf(type), rule.assemblyName, StringComparison.Ordinal))
             {
                 // Same name in a different assembly: still the best candidate we have, but record the move.
-                rule.assemblyName = type.Assembly.GetName().Name;
+                rule.assemblyName = AssemblyNameOf(type);
             }
 
             if (string.IsNullOrEmpty(rule.monoScriptGuid))

@@ -161,11 +161,9 @@ namespace HierarchyDecorator
                     continue;
                 }
 
-                if (!options.enabled)
-                {
-                    continue;
-                }
-
+                // Note: the icon slice is built whenever this facet is requested, not only when the inline
+                // strip is on. The Components column is a second consumer, and gating the data on the strip's
+                // own toggle left that column permanently empty.
                 Type type = component.GetType();
 
                 if (!ShouldShow(type, options))

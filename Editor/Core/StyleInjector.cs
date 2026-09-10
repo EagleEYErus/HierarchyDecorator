@@ -36,6 +36,12 @@ namespace HierarchyDecorator
             // Theme variables first, rules second - insertion order is application order.
             AddSheet(container, EditorGUIUtility.isProSkin ? PackageInfo.StyleSheetDark : PackageInfo.StyleSheetLight);
             AddSheet(container, PackageInfo.StyleSheetBase);
+
+            // A view is (re)bound whenever its source hierarchy is replaced - including a prefab-stage
+            // reload, whose own PrefabStage.prefabStageReloaded event is internal and cannot be subscribed
+            // to. Every EntityId in the cache may now belong to a different object, so it is dropped. The
+            // cost is one bind per visible row.
+            DecorationCache.Clear();
         }
 
         internal static void OnUnbindView(HierarchyWindow window, HierarchyView view)
