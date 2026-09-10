@@ -61,6 +61,13 @@ namespace HierarchyDecorator
             PrefabStage.prefabStageClosing += OnPrefabStageChanged;
 
             AssemblyReloadEvents.beforeAssemblyReload += Uninstall;
+            EditorApplication.quitting += FlushSettings;
+        }
+
+        /// <summary>Settings edits are debounced, so a pending write has to be forced before we lose the domain.</summary>
+        private static void FlushSettings()
+        {
+            HierarchyDecoratorSettings.instance.FlushPendingSave();
         }
 
         private static void OnEditorReady()
@@ -117,6 +124,9 @@ namespace HierarchyDecorator
             PrefabStage.prefabStageClosing -= OnPrefabStageChanged;
 
             AssemblyReloadEvents.beforeAssemblyReload -= Uninstall;
+            EditorApplication.quitting -= FlushSettings;
+
+            FlushSettings();
 
             DecoratorHost.Reset();
             ChangeTracker.ResetAll();

@@ -220,7 +220,9 @@ namespace HierarchyDecorator
 
             Button save = new Button(() =>
             {
-                string name = "Custom " + (settings.CustomPresets.Count + 1);
+                // Derived from Count, the name repeated as soon as anything was deleted - and both Find and
+                // the Delete handler take the first match, so Apply and Delete then acted on the wrong one.
+                string name = NextCustomPresetName(settings);
 
                 Undo.RegisterCompleteObjectUndo(settings, "Save Preset");
                 settings.CustomPresets.Add(Preset.CaptureFrom(settings, name));
@@ -255,6 +257,9 @@ namespace HierarchyDecorator
             {
                 text = "Delete"
             };
+
+            delete.SetEnabled(!BuiltInPresets.IsBuiltIn(dropdown.value));
+            dropdown.RegisterValueChangedCallback(evt => delete.SetEnabled(!BuiltInPresets.IsBuiltIn(evt.newValue)));
 
             VisualElement buttons = new VisualElement();
             buttons.AddToClassList("hd-row");
@@ -385,6 +390,27 @@ namespace HierarchyDecorator
 
             box.style.display = LegacyHierarchyNotice.IsUsingLegacyWindow() ? DisplayStyle.Flex : DisplayStyle.None;
             return box;
+        }
+
+        /// <summary>First unused "Custom N", so two presets can never share a name.</summary>
+        private static string NextCustomPresetName(HierarchyDecoratorSettings settings)
+        {
+            for (int i = 1; i < 1000; i++)
+            {
+                string candidate = "Custom " + i;
+
+                if (BuiltInPresets.IsBuiltIn(candidate))
+                {
+                    continue;
+                }
+
+                if (settings.CustomPresets.Find(p => p.name == candidate) == null)
+                {
+                    return candidate;
+                }
+            }
+
+            return "Custom";
         }
 
         private static Preset FindPreset(HierarchyDecoratorSettings settings, string name)

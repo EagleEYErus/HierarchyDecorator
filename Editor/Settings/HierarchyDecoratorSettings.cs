@@ -14,6 +14,8 @@ namespace HierarchyDecorator
     {
         internal const int CurrentSchemaVersion = 1;
 
+        private const double SaveDebounceSeconds = 0.5;
+
         [SerializeField] private int m_SchemaVersion = CurrentSchemaVersion;
 
         [SerializeField] private List<HeaderRule> m_HeaderRules = new List<HeaderRule>();
@@ -26,13 +28,24 @@ namespace HierarchyDecorator
 
         [SerializeField] private bool m_LegacyMigrationCompleted;
 
+        /// <summary>
+        /// Whether the shipped defaults have ever been written. Deliberately not inferred from an empty rule
+        /// list: a team that does not use the "= " convention must be able to delete every rule and have it
+        /// stay deleted.
+        /// </summary>
+        [SerializeField] private bool m_DefaultsSeeded;
+
         /// <summary>Bumped whenever anything a decorator reads changes. Cheap change detection for caches.</summary>
         [NonSerialized] private int m_Revision;
 
         /// <summary>Set by the migration chain; the actual disk write happens on the main thread.</summary>
         [NonSerialized] private bool m_PendingSave;
 
+        /// <summary>Set when the file on disk was written by a newer version of the package.</summary>
+        [NonSerialized] private bool m_UnknownSchema;
+
         [NonSerialized] private bool m_SaveScheduled;
+        [NonSerialized] private double m_SaveDeadline;
 
         public List<HeaderRule> HeaderRules => m_HeaderRules;
         public List<ComponentRule> ComponentRules => m_ComponentRules;
@@ -53,15 +66,32 @@ namespace HierarchyDecorator
 
         private void OnEnable()
         {
-            if (m_HeaderRules.Count == 0 && m_SchemaVersion == CurrentSchemaVersion)
+            if (m_UnknownSchema)
+            {
+                HierarchyLog.Once(
+                    "schema-newer",
+                    $"{HierarchyDecoratorSettings.FilePath} was written by a newer version of Hierarchy " +
+                    $"Decorator (schema {m_SchemaVersion}, this build understands {CurrentSchemaVersion}). " +
+                    "It is being read as best it can and will not be rewritten; update the package to edit it.");
+                return;
+            }
+
+            if (!m_DefaultsSeeded && m_SchemaVersion == CurrentSchemaVersion)
             {
                 DefaultSettings.PopulateHeaderRules(m_HeaderRules);
+
+                // Also apply the preset the user settings claim is active, so a fresh install actually looks
+                // like what the Preset dropdown says it is.
+                BuiltInPresets.Find(BuiltInPresets.CleanName)?.ApplyTo(this);
+
+                m_DefaultsSeeded = true;
+                m_PendingSave = true;
             }
 
             if (m_PendingSave)
             {
                 m_PendingSave = false;
-                EditorApplication.delayCall += () => Persist();
+                EditorApplication.delayCall += Persist;
             }
         }
 
@@ -79,12 +109,15 @@ namespace HierarchyDecorator
         }
 
         /// <summary>
-        /// Signal a change and coalesce the disk write into the next editor tick. Used by the settings UI so
-        /// that dragging a slider does not rewrite the file once per frame.
+        /// Signal a change and debounce the disk write. Used by the settings UI: a two-second slider drag
+        /// changes the value once per frame, and a delayCall would fire on the very next tick, so the file
+        /// was being rewritten in full a hundred times for one gesture.
         /// </summary>
         public void MarkChangedDeferred()
         {
             unchecked { m_Revision++; }
+
+            m_SaveDeadline = EditorApplication.timeSinceStartup + SaveDebounceSeconds;
 
             if (m_SaveScheduled)
             {
@@ -92,12 +125,29 @@ namespace HierarchyDecorator
             }
 
             m_SaveScheduled = true;
-            EditorApplication.delayCall += FlushDeferredSave;
+            EditorApplication.update += TickDeferredSave;
         }
 
-        private void FlushDeferredSave()
+        private void TickDeferredSave()
         {
+            if (EditorApplication.timeSinceStartup < m_SaveDeadline)
+            {
+                return;
+            }
+
+            FlushPendingSave();
+        }
+
+        /// <summary>Writes a debounced change immediately. Called before a domain reload and on quit.</summary>
+        public void FlushPendingSave()
+        {
+            if (!m_SaveScheduled)
+            {
+                return;
+            }
+
             m_SaveScheduled = false;
+            EditorApplication.update -= TickDeferredSave;
             Persist();
         }
 
@@ -113,6 +163,15 @@ namespace HierarchyDecorator
             // Runs off the main thread for some object types: field shuffling only, no Unity API calls.
             if (m_SchemaVersion == CurrentSchemaVersion)
             {
+                return;
+            }
+
+            if (m_SchemaVersion > CurrentSchemaVersion)
+            {
+                // Written by a newer package. Unity's deserializer has already dropped whatever fields this
+                // build does not know; stamping the version down as well would tell the newer package that
+                // the file is old and let it "migrate" the damage in. Leave it alone and report it.
+                m_UnknownSchema = true;
                 return;
             }
 
@@ -138,6 +197,9 @@ namespace HierarchyDecorator
     [FilePath(PackageInfo.UserSettingsPath, FilePathAttribute.Location.ProjectFolder)]
     public sealed class HierarchyDecoratorUserSettings : ScriptableSingleton<HierarchyDecoratorUserSettings>
     {
+        internal const int CurrentSchemaVersion = 1;
+
+        [SerializeField] private int m_SchemaVersion = CurrentSchemaVersion;
         [SerializeField] private bool m_Enabled = true;
         [SerializeField] private string m_ActivePreset = BuiltInPresets.CleanName;
         [SerializeField] private bool m_ShowLegacyHierarchyHint = true;
@@ -145,6 +207,8 @@ namespace HierarchyDecorator
         [NonSerialized] private int m_Revision;
 
         public int Revision => m_Revision;
+
+        public int SchemaVersion => m_SchemaVersion;
 
         public bool Enabled
         {

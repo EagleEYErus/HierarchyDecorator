@@ -27,6 +27,9 @@ namespace HierarchyDecorator
         private string m_Search = string.Empty;
         private bool m_OverridesOnly;
 
+        /// <summary>Settings revision the rule index was built for; -1 forces a rebuild.</summary>
+        private int m_IndexRevision = -1;
+
         public ComponentRuleListView(HierarchyDecoratorSettings settings, Action onChanged)
         {
             m_Settings = settings;
@@ -89,6 +92,7 @@ namespace HierarchyDecorator
 
         public void Refresh()
         {
+            InvalidateIndex();
             RebuildRuleIndex();
 
             m_Filtered.Clear();
@@ -113,13 +117,29 @@ namespace HierarchyDecorator
             }
 
             m_List.itemsSource = m_Filtered;
-            m_List.Rebuild();
+
+            // RefreshItems, not Rebuild: only the data changed, and Rebuild throws away and recreates every
+            // pooled row on every keystroke in the search field.
+            m_List.RefreshItems();
 
             m_Summary.text = $"{m_Filtered.Count} of {types.Count} component types · {m_RulesByType.Count} rule(s) stored";
         }
 
+        public void InvalidateIndex()
+        {
+            m_IndexRevision = -1;
+        }
+
         private void RebuildRuleIndex()
         {
+            // Resolving a rule can hit the AssetDatabase (GUID -> path -> MonoScript -> Type). Typing in the
+            // search field must not pay for that on every character.
+            if (m_IndexRevision == m_Settings.Revision)
+            {
+                return;
+            }
+
+            m_IndexRevision = m_Settings.Revision;
             m_RulesByType.Clear();
 
             List<ComponentRule> rules = m_Settings.ComponentRules;
@@ -135,7 +155,7 @@ namespace HierarchyDecorator
             }
         }
 
-        private static VisualElement MakeItem()
+        private VisualElement MakeItem()
         {
             VisualElement row = new VisualElement();
             row.AddToClassList("hd-rule-row");
@@ -148,6 +168,9 @@ namespace HierarchyDecorator
 
             EnumField display = new EnumField(ComponentDisplay.Default) { name = "display" };
             display.AddToClassList("hd-rule-display");
+
+            // Registered once per pooled row rather than on every bind; the bound type travels in userData.
+            display.RegisterCallback<ChangeEvent<Enum>>(OnDisplayChanged);
 
             row.Add(name);
             row.Add(assembly);
@@ -179,8 +202,6 @@ namespace HierarchyDecorator
             // The callback is re-registered per bind because rows are recycled across different types.
             display.userData = type;
             display.SetValueWithoutNotify(current);
-            display.UnregisterCallback<ChangeEvent<Enum>>(OnDisplayChanged);
-            display.RegisterCallback<ChangeEvent<Enum>>(OnDisplayChanged);
         }
 
         private void OnDisplayChanged(ChangeEvent<Enum> evt)
@@ -197,6 +218,7 @@ namespace HierarchyDecorator
         {
             // The index caches ComponentRule object references, and an import or a reset replaces the whole
             // list. Rebuilding first means the view can never edit an object that is no longer in it.
+            InvalidateIndex();
             RebuildRuleIndex();
 
             List<ComponentRule> rules = m_Settings.ComponentRules;
