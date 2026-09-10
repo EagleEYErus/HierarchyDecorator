@@ -32,6 +32,8 @@ namespace HierarchyDecorator
         /// <summary>Set by the migration chain; the actual disk write happens on the main thread.</summary>
         [NonSerialized] private bool m_PendingSave;
 
+        [NonSerialized] private bool m_SaveScheduled;
+
         public List<HeaderRule> HeaderRules => m_HeaderRules;
         public List<ComponentRule> ComponentRules => m_ComponentRules;
         public ComponentIconSettings ComponentIcons => m_ComponentIcons;
@@ -74,6 +76,29 @@ namespace HierarchyDecorator
         public void MarkChangedWithoutSave()
         {
             unchecked { m_Revision++; }
+        }
+
+        /// <summary>
+        /// Signal a change and coalesce the disk write into the next editor tick. Used by the settings UI so
+        /// that dragging a slider does not rewrite the file once per frame.
+        /// </summary>
+        public void MarkChangedDeferred()
+        {
+            unchecked { m_Revision++; }
+
+            if (m_SaveScheduled)
+            {
+                return;
+            }
+
+            m_SaveScheduled = true;
+            EditorApplication.delayCall += FlushDeferredSave;
+        }
+
+        private void FlushDeferredSave()
+        {
+            m_SaveScheduled = false;
+            Persist();
         }
 
         public void Persist()
