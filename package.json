@@ -1,19 +1,34 @@
 {
   "name": "com.wooshii.hierarchydecorator",
-  "displayName": "HierarchyDecorator",
-  "version": "0.12.1",
-  "unity": "2018.4",
-  "description": "HierarchyDecorator is an extension for the Unity Hierarchy enhancing it's utility.",
+  "displayName": "Hierarchy Decorator 2",
+  "version": "2.0.0",
+  "unity": "6000.6",
+  "unityRelease": "0f1",
+  "description": "Hierarchy Decorator turns the Unity Hierarchy into a readable, informative workspace: headers, separators, tree guide lines, component icons and problem indicators - built natively on the Unity 6.6 Hierarchy window with UI Toolkit.\n\nOriginally created by Damian Slocombe (WooshiiDev). Modernized for Unity 6.6+.",
   "keywords": [
     "hierarchy",
-    "editor"
+    "editor",
+    "editor-tools",
+    "productivity",
+    "ui-toolkit"
   ],
   "category": "Editor",
+  "type": "tool",
+  "hideInEditor": false,
   "dependencies": {},
-
-   "author": {
+  "author": {
     "name": "Wooshii",
     "email": "wooshiidev@gmail.com",
     "url": "https://github.com/WooshiiDev/HierarchyDecorator"
-  }
+  },
+  "documentationUrl": "https://github.com/WooshiiDev/HierarchyDecorator#readme",
+  "changelogUrl": "https://github.com/WooshiiDev/HierarchyDecorator/blob/master/CHANGELOG.md",
+  "licensesUrl": "https://github.com/WooshiiDev/HierarchyDecorator/blob/master/LICENSE.md",
+  "samples": [
+    {
+      "displayName": "Benchmark Scene Generator",
+      "description": "Editor tooling that generates 100 / 1k / 10k GameObject hierarchies for measuring decoration cost.",
+      "path": "Samples~/BenchmarkScenes"
+    }
+  ]
 }
