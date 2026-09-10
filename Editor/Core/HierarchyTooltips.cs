@@ -26,7 +26,25 @@ namespace HierarchyDecorator
                 return;
             }
 
-            if (item.Node == HierarchyNode.Null || !HierarchyNodes.TryGetGameObject(item, out UnityEngine.GameObject gameObject))
+            if (item.Node == HierarchyNode.Null)
+            {
+                return;
+            }
+
+            // Scene rows carry no decoration, but the asset path is otherwise invisible in the Hierarchy.
+            if (item.Handler is HierarchySceneHandler sceneHandler)
+            {
+                UnityEngine.SceneManagement.Scene scene = sceneHandler.GetScene(item.Node);
+
+                if (scene.IsValid() && !string.IsNullOrEmpty(scene.path))
+                {
+                    Append(tooltip, scene.path);
+                }
+
+                return;
+            }
+
+            if (!HierarchyNodes.TryGetGameObject(item, out UnityEngine.GameObject gameObject))
             {
                 return;
             }

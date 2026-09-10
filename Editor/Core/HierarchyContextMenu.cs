@@ -3,6 +3,7 @@ using Unity.Hierarchy;
 using Unity.Hierarchy.Editor;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 namespace HierarchyDecorator
@@ -22,6 +23,11 @@ namespace HierarchyDecorator
         internal static void OnPopulateContextMenu(HierarchyWindow window, HierarchyView view, HierarchyViewItem item, DropdownMenu menu)
         {
             if (menu == null)
+            {
+                return;
+            }
+
+            if (TryAppendSceneActions(item, menu))
             {
                 return;
             }
@@ -55,6 +61,45 @@ namespace HierarchyDecorator
 
             menu.AppendAction(Root + "Clear Decoration", _ => ClearPrefix(), DropdownMenuAction.AlwaysEnabled, null);
             menu.AppendAction(Root + "Settings...", _ => SettingsService.OpenProjectSettings(PackageInfo.SettingsMenuPath), DropdownMenuAction.AlwaysEnabled, null);
+        }
+
+        /// <summary>
+        /// Scene rows are not GameObjects, so the visual decorators skip them - but the context menu exists
+        /// to add entries, and "which asset is this scene?" is a real question with no other answer in the
+        /// Hierarchy. Returns true when the row was a scene and the menu is done.
+        /// </summary>
+        private static bool TryAppendSceneActions(HierarchyViewItem item, DropdownMenu menu)
+        {
+            if (item?.Handler is not HierarchySceneHandler handler || item.Node == HierarchyNode.Null)
+            {
+                return false;
+            }
+
+            Scene scene = handler.GetScene(item.Node);
+
+            if (!scene.IsValid() || string.IsNullOrEmpty(scene.path))
+            {
+                return false;
+            }
+
+            string path = scene.path;
+
+            menu.AppendAction(Root + "Ping Scene Asset", _ => PingSceneAsset(path), DropdownMenuAction.AlwaysEnabled, null);
+            menu.AppendAction(Root + "Settings...", _ => SettingsService.OpenProjectSettings(PackageInfo.SettingsMenuPath), DropdownMenuAction.AlwaysEnabled, null);
+            return true;
+        }
+
+        private static void PingSceneAsset(string path)
+        {
+            Object asset = AssetDatabase.LoadAssetAtPath<SceneAsset>(path);
+
+            if (asset == null)
+            {
+                return;
+            }
+
+            Selection.activeObject = asset;
+            EditorGUIUtility.PingObject(asset);
         }
 
         /// <summary>
