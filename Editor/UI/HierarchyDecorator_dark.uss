@@ -1,0 +1,14 @@
+/*
+ * Hierarchy Decorator 2 - dark skin variables.
+ *
+ * Only variable definitions belong here; the rules live in HierarchyDecorator.uss. The --hd- prefix is
+ * deliberate: the bare --hierarchy-* namespace is already used by Unity's own hierarchy sheet and by
+ * com.unity.entities, which collide with each other.
+ */
+
+:root {
+    --hd-badge-text: rgb(230, 230, 230);
+    --hd-badge-background: rgba(20, 20, 20, 0.85);
+    --hd-overflow-text: rgb(140, 140, 140);
+    --hd-icon-hover-tint: rgb(255, 255, 255);
+}

@@ -1,0 +1,11 @@
+/*
+ * Hierarchy Decorator 2 - light skin variables.
+ * See HierarchyDecorator_dark.uss for the rationale.
+ */
+
+:root {
+    --hd-badge-text: rgb(250, 250, 250);
+    --hd-badge-background: rgba(60, 60, 60, 0.85);
+    --hd-overflow-text: rgb(105, 105, 105);
+    --hd-icon-hover-tint: rgb(40, 40, 40);
+}

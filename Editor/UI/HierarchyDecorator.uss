@@ -1,0 +1,78 @@
+/*
+ * Hierarchy Decorator 2 - structural rules.
+ *
+ * Everything is scoped under .hd-root, which is added to HierarchyView.StyleContainer. The built-in
+ * .hierarchy-item__* rules live in the editor-wide DefaultCommon stylesheets and HierarchyView is reused by
+ * other windows, so unscoped selectors would leak far outside the Hierarchy.
+ *
+ * Colours come from the paired _dark / _light sheets as --hd-* variables. The editor has no theme selector,
+ * so this mirrors what Unity's own HierarchyWindow.uss does.
+ */
+
+/* ---------------------------------------------------------------- tree guide lines */
+
+.hd-root .hd-tree-lines {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- component icons */
+
+.hd-root .hd-component-icons {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    margin-right: 2px;
+}
+
+.hd-root .hd-component-icon {
+    width: 16px;
+    height: 16px;
+    flex-grow: 0;
+    flex-shrink: 0;
+    margin-left: 1px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.hd-root .hd-component-icon:hover {
+    -unity-background-image-tint-color: var(--hd-icon-hover-tint);
+}
+
+.hd-root .hd-icon-count {
+    position: absolute;
+    right: -2px;
+    bottom: -3px;
+    font-size: 8px;
+    -unity-font-style: bold;
+    color: var(--hd-badge-text);
+    background-color: var(--hd-badge-background);
+    border-radius: 4px;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+.hd-root .hd-icon-overflow {
+    font-size: 9px;
+    -unity-font-style: bold;
+    margin-left: 3px;
+    margin-right: 1px;
+    color: var(--hd-overflow-text);
+}
+
+/* ---------------------------------------------------------------- indicators */
+
+.hd-root .hd-indicator {
+    width: 14px;
+    height: 14px;
+    flex-grow: 0;
+    flex-shrink: 0;
+    margin-left: 3px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
