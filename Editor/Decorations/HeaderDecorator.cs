@@ -10,9 +10,15 @@ namespace HierarchyDecorator
     ///
     /// Unlike 1.x this never repaints the row. The row's own background colour is tinted, a label of our own
     /// carries the stripped text, and a separator line is a background image on the shared row container.
-    /// Unity keeps drawing the foldout, selection, hover, prefab override bar and prefab text colours, which
-    /// is what fixes the "two tone background hides the override bar" and "SubScene caret hidden" classes of
-    /// bug outright.
+    /// Unity keeps drawing the foldout, the prefab override bar and the prefab text colours, which is what
+    /// fixes the "two tone background hides the override bar" and "SubScene caret hidden" classes of bug
+    /// outright.
+    ///
+    /// <para>
+    /// The fill is an inline style, and an inline style outranks every stylesheet - including Unity's
+    /// selection rule. A selected row is therefore left unfilled so the highlight shows; hover cannot be
+    /// read from C# at all and stays overridden, which is recorded in ARCHITECTURE.md as a limitation.
+    /// </para>
     ///
     /// <para>
     /// The header text is deliberately NOT written into Unity's own name Label. Unity's inline rename reads
@@ -62,16 +68,16 @@ namespace HierarchyDecorator
             {
                 if (isSeparator)
                 {
-                    ApplySeparatorLine(row, rule, context.IsDarkSkin, hasLabel);
+                    ApplySeparatorLine(row, rule, context.IsDarkSkin, hasLabel, context.IsSelected);
                 }
                 else
                 {
                     ClearSeparatorLine(row);
-                    row.style.backgroundColor = rule.backgroundColor.Resolve(context.IsDarkSkin);
+                    SetRowBackground(row, rule.backgroundColor.Resolve(context.IsDarkSkin), context.IsSelected);
 
                     if (rule.showLine)
                     {
-                        ApplySeparatorLine(row, rule, context.IsDarkSkin, hasLabel);
+                        ApplySeparatorLine(row, rule, context.IsDarkSkin, hasLabel, context.IsSelected);
                     }
                 }
             }
@@ -257,13 +263,16 @@ namespace HierarchyDecorator
         /// bottom edge when there is one, because a centred line would run through the text and read as a
         /// strikethrough.
         /// </summary>
-        private static void ApplySeparatorLine(VisualElement row, HeaderRule rule, bool isDarkSkin, bool hasLabel)
+        private static void ApplySeparatorLine(VisualElement row, HeaderRule rule, bool isDarkSkin, bool hasLabel, bool isSelected)
         {
             Texture2D texture = LineTextures.GetStrip(rule.lineStyle, vertical: false);
 
-            row.style.backgroundColor = rule.kind == HeaderKind.Separator
-                ? new Color(0f, 0f, 0f, 0f)
-                : rule.backgroundColor.Resolve(isDarkSkin);
+            // Transparent is still an inline value, and an inline value still beats the selection rule -
+            // a separator row would lose its highlight just as a filled header would.
+            SetRowBackground(
+                row,
+                rule.kind == HeaderKind.Separator ? new Color(0f, 0f, 0f, 0f) : rule.backgroundColor.Resolve(isDarkSkin),
+                isSelected);
 
             row.style.backgroundImage = new StyleBackground(texture);
             row.style.unityBackgroundImageTintColor = rule.textColor.Resolve(isDarkSkin);
@@ -271,6 +280,15 @@ namespace HierarchyDecorator
             row.style.backgroundSize = new StyleBackgroundSize(new BackgroundSize(texture.width, rule.lineThickness));
             row.style.backgroundPositionY = new StyleBackgroundPosition(
                 new BackgroundPosition(hasLabel ? BackgroundPositionKeyword.Bottom : BackgroundPositionKeyword.Center));
+        }
+
+        /// <summary>
+        /// Writes the row fill, unless the row is selected - see <see cref="RowContext.IsSelected"/>. Every
+        /// background write in this file goes through here so the rule cannot be forgotten in one branch.
+        /// </summary>
+        private static void SetRowBackground(VisualElement row, Color color, bool isSelected)
+        {
+            row.style.backgroundColor = isSelected ? (StyleColor)StyleKeyword.Null : new StyleColor(color);
         }
 
         private static void ClearSeparatorLine(VisualElement row)

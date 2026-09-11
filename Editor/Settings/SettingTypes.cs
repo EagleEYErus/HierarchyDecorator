@@ -225,7 +225,10 @@ namespace HierarchyDecorator
 
         public ComponentIconOrder order = ComponentIconOrder.Natural;
 
-        public ComponentClickAction clickAction = ComponentClickAction.Select;
+        // Toggling is the action people asked for, and it is the only one that does something a plain click
+        // on the row does not: Select puts the same GameObject in the Inspector that clicking the row
+        // already would, so with it the icons look inert.
+        public ComponentClickAction clickAction = ComponentClickAction.ToggleEnabled;
 
         public ComponentIconSettings Clone()
         {

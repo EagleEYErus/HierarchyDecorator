@@ -253,6 +253,11 @@ namespace HierarchyDecorator
                 DecorationCache.Ensure(data, gameObject, settings, RequiredFacets(settings));
             }
 
+            // One native call per bound row. Unity rebinds every visible row when the selection changes, so
+            // reading it here is enough - no subscription to Selection.selectionChanged and no refresh of
+            // our own.
+            bool isSelected = node != HierarchyNode.Null && view.IsSelected(node);
+
             RowContext context = new RowContext(
                 window,
                 view,
@@ -264,6 +269,7 @@ namespace HierarchyDecorator
                 settings,
                 isDarkSkin,
                 view.Filtering,
+                isSelected,
                 active);
 
             for (int i = 0; i < s_Decorators.Length; i++)

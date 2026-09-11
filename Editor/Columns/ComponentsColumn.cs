@@ -38,12 +38,22 @@ namespace HierarchyDecorator
 
         private static readonly List<HierarchyViewCell> s_Scratch = new List<HierarchyViewCell>(64);
 
+        private const string HeaderTooltip = "Component icons for each GameObject (Hierarchy Decorator).";
+
         [HierarchyViewColumnDescriptor(ColumnId)]
         private static void CreateColumn(HierarchyViewColumnDescriptor descriptor)
         {
             descriptor.Title = "Components";
-            descriptor.Icon = EditorGUIUtility.IconContent("UnityEditor.InspectorWindow")?.image as Texture2D;
-            descriptor.Tooltip = "Component icons for each GameObject (Hierarchy Decorator).";
+
+            // No Icon. A column header is not a button - the header is inert and our columns are not
+            // sortable - and the Inspector icon this used to carry renders as a circled "i", so people
+            // hovered and clicked it expecting an explanation and got nothing at all.
+            //
+            // Tooltip is set because it is the documented way to explain a column, but be aware that Unity
+            // 6000.6.0f1 does not show it: measured on a live window, the string reaches no element of the
+            // header, and neither MakeHeader nor BindHeader is ever invoked (MakeHeader is worse than
+            // useless - assigning it makes the column vanish from the window entirely).
+            descriptor.Tooltip = HeaderTooltip;
 
             // Positive priority places the column to the right of the Name column.
             descriptor.DefaultPriority = 1;
@@ -129,6 +139,11 @@ namespace HierarchyDecorator
                 HideFrom(strip[IconsIndex], 0);
                 strip[OverflowIndex].style.display = DisplayStyle.None;
             }
+
+            // Hand the cell back in its default state. A cell left non-default stays visible when it is
+            // rebound to a row this column has no cell descriptor for - a scene row, say - and then shows
+            // the previous occupant's content.
+            cell.IsDefaultValue = true;
         }
 
         private static void Populate(HierarchyViewCell cell)
@@ -243,7 +258,7 @@ namespace HierarchyDecorator
 
                 // Same handler as the inline strip: a click on an icon must mean the same thing wherever the
                 // icon is drawn.
-                icon.RegisterCallback<PointerDownEvent>(ComponentIconDecorator.OnIconPointerDown);
+                icon.RegisterCallback<ClickEvent>(ComponentIconDecorator.OnIconClicked);
                 icons.Add(icon);
             }
         }

@@ -21,11 +21,14 @@ namespace HierarchyDecorator
         private const string ColumnId = PackageInfo.Name + ".children";
         private const string LabelName = "hd-children-count";
 
+        private const string HeaderTooltip = "Number of descendants, including collapsed ones (Hierarchy Decorator).";
+
         [HierarchyViewColumnDescriptor(ColumnId)]
         private static void CreateColumn(HierarchyViewColumnDescriptor descriptor)
         {
             descriptor.Title = "Children";
-            descriptor.Tooltip = "Number of descendants, including collapsed ones (Hierarchy Decorator).";
+            // Not shown by Unity 6000.6.0f1 - see the note in ComponentsColumn.CreateColumn.
+            descriptor.Tooltip = HeaderTooltip;
             descriptor.DefaultPriority = 2;
             descriptor.DefaultWidth = 64;
             descriptor.DefaultVisibility = false;
@@ -36,6 +39,27 @@ namespace HierarchyDecorator
         {
             descriptor.ClearCellContent = false;
             descriptor.BindCell = BindCell;
+            descriptor.UnbindCell = UnbindCell;
+        }
+
+        /// <summary>
+        /// Returns the cell to its default state.
+        ///
+        /// Without this the count stuck: the cell descriptor only matches <c>HierarchyGameObjectHandler</c>,
+        /// so when the pooled cell was rebound to a scene row nothing ran, and the cell kept both the text
+        /// and the "not a default value" flag that makes Unity show it - a scene row displaying the child
+        /// count of whichever GameObject used to live at that position.
+        /// </summary>
+        private static void UnbindCell(HierarchyViewCell cell)
+        {
+            Label label = RowElements.Find<Label>(cell, LabelName);
+
+            if (label != null)
+            {
+                label.text = string.Empty;
+            }
+
+            cell.IsDefaultValue = true;
         }
 
         private static void BindCell(HierarchyViewCell cell)

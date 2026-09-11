@@ -30,7 +30,7 @@ namespace HierarchyDecorator
         [Range(0, 16)] public int maxIconsPerRow = 8;
         public bool componentTooltips = true;
         public bool fadeDisabledComponents = true;
-        public ComponentClickAction clickAction = ComponentClickAction.Select;
+        public ComponentClickAction clickAction = ComponentClickAction.ToggleEnabled;
 
         public bool missingScriptIndicator = true;
 
@@ -133,7 +133,7 @@ namespace HierarchyDecorator
                 componentIconsIncludeCustomScripts = false,
                 maxIconsPerRow = 4,
                 componentTooltips = true,
-                clickAction = ComponentClickAction.Select,
+                clickAction = ComponentClickAction.ToggleEnabled,
                 missingScriptIndicator = true
             },
             new Preset

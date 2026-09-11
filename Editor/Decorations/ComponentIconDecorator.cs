@@ -102,7 +102,7 @@ namespace HierarchyDecorator
             element.style.opacity = enabled == 0 ? DisabledOpacity : 1f;
 
             // Always pickable: PickingMode.Ignore would also kill the tooltip, and "no click action" is
-            // not the same request as "no tooltip". OnIconPointerDown returns early when the action is None.
+            // not the same request as "no tooltip". OnIconClicked returns early when the action is None.
             element.pickingMode = PickingMode.Position;
 
             if (options.showTooltips)
@@ -165,7 +165,7 @@ namespace HierarchyDecorator
 
                 // Registered once, at creation: rows are recycled and callbacks must not be re-registered on
                 // every bind. The bound component travels in userData.
-                icon.RegisterCallback<PointerDownEvent>(OnIconPointerDown);
+                icon.RegisterCallback<ClickEvent>(OnIconClicked);
 
                 icons.Add(icon);
             }
@@ -184,10 +184,30 @@ namespace HierarchyDecorator
             return badge;
         }
 
-        /// <summary>Shared with the Components column so a click means the same thing in both places.</summary>
-        internal static void OnIconPointerDown(PointerDownEvent evt)
+        /// <summary>
+        /// Shared with the Components column so a click means the same thing in both places.
+        ///
+        /// <para>
+        /// This is a <see cref="ClickEvent"/>, not a <see cref="PointerDownEvent"/>, and it deliberately does
+        /// not stop propagation. Row selection and the drag-and-drop arming both live on ancestors in the
+        /// bubble phase of the pointer-down, so swallowing that event made a row unselectable and
+        /// undraggable anywhere the icon strip covered it. A click arrives after selection has already
+        /// happened, which is exactly the ordering we want.
+        /// </para>
+        ///
+        /// <para>
+        /// Modified and repeated clicks are left entirely to Unity: shift and ctrl/cmd extend the selection,
+        /// and a double click frames the object.
+        /// </para>
+        /// </summary>
+        internal static void OnIconClicked(ClickEvent evt)
         {
             if (evt.button != 0 || evt.currentTarget is not VisualElement element)
+            {
+                return;
+            }
+
+            if (evt.shiftKey || evt.ctrlKey || evt.commandKey || evt.altKey || evt.clickCount > 1)
             {
                 return;
             }
@@ -225,8 +245,6 @@ namespace HierarchyDecorator
                 default:
                     return;
             }
-
-            evt.StopPropagation();
         }
     }
 }

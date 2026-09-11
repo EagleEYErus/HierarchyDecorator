@@ -10,5 +10,5 @@
     --hd-badge-text: rgb(230, 230, 230);
     --hd-badge-background: rgba(20, 20, 20, 0.85);
     --hd-overflow-text: rgb(140, 140, 140);
-    --hd-icon-hover-tint: rgb(255, 255, 255);
+    --hd-icon-hover-background: rgba(255, 255, 255, 0.14);
 }

@@ -27,6 +27,15 @@ namespace HierarchyDecorator
         public readonly bool IsFiltering;
 
         /// <summary>
+        /// True when this row is part of the Hierarchy selection.
+        ///
+        /// Anything that writes an inline background colour onto the row container must leave it alone while
+        /// this is set: an inline style outranks every stylesheet, so writing a colour here would replace
+        /// Unity's own selection highlight rather than sit under it.
+        /// </summary>
+        public readonly bool IsSelected;
+
+        /// <summary>
         /// Master switch. When false every decorator must hide its own elements - the row may have been
         /// decorated before the user turned the plugin off, and recycled rows keep what was put on them.
         /// </summary>
@@ -43,6 +52,7 @@ namespace HierarchyDecorator
             HierarchyDecoratorSettings settings,
             bool isDarkSkin,
             bool isFiltering,
+            bool isSelected,
             bool active)
         {
             Active = active;
@@ -57,6 +67,7 @@ namespace HierarchyDecorator
             IsDarkSkin = isDarkSkin;
             IsGameObject = gameObject != null;
             IsFiltering = isFiltering;
+            IsSelected = isSelected;
         }
 
         /// <summary>The header rule matched by this row's name, or null.</summary>

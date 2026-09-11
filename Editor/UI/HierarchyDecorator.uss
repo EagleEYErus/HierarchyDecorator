@@ -45,8 +45,11 @@
     background-position: center;
 }
 
+/* A backing plate, not a tint. -unity-background-image-tint-color MULTIPLIES the image: white left the dark
+   theme with no hover feedback at all, and the light theme's dark value turned the icon almost black. */
 .hd-root .hd-component-icon:hover {
-    -unity-background-image-tint-color: var(--hd-icon-hover-tint);
+    background-color: var(--hd-icon-hover-background);
+    border-radius: 2px;
 }
 
 .hd-root .hd-icon-count {

@@ -7,7 +7,7 @@ namespace HierarchyDecorator
     {
         public const string Name = "com.wooshii.hierarchydecorator";
         public const string DisplayName = "Hierarchy Decorator";
-        public const string Version = "2.0.0";
+        public const string Version = "2.0.1";
 
         public const string ProjectSettingsPath = "ProjectSettings/Packages/" + Name + "/Settings.asset";
         public const string UserSettingsPath = "UserSettings/Packages/" + Name + "/UserSettings.asset";
