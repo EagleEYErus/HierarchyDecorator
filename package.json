@@ -1,7 +1,7 @@
 {
   "name": "com.wooshii.hierarchydecorator",
   "displayName": "Hierarchy Decorator 2",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "unity": "6000.6",
   "unityRelease": "0f1",
   "description": "Hierarchy Decorator turns the Unity Hierarchy into a readable, informative workspace: headers, separators, tree guide lines, component icons and problem indicators - built natively on the Unity 6.6 Hierarchy window with UI Toolkit.\n\nOriginally created by Damian Slocombe (WooshiiDev). Modernized for Unity 6.6+.",

@@ -5,8 +5,9 @@ scene. Name a GameObject `= PLAYER` and it becomes a section header; empty objec
 separator rules; nested objects get tree guide lines that show real depth; each row can carry the icons of the
 components on it, and a warning badge when a MonoBehaviour script is missing. Version 2.0 is a full rewrite on
 Unity 6.6's public `Unity.Hierarchy` extension API, so decorations are UI Toolkit elements *added* to the row
-Unity already drew — the plugin never repaints the row itself, which is why selection, hover, prefab override
-bars, SubScene carets and prefab text colors all keep working.
+Unity already drew — the plugin never repaints the row itself, which is why the prefab override bar, SubScene
+carets, prefab text colors and the foldout all keep working. A row Unity has selected is left entirely to
+Unity, so the selection highlight is never replaced by a header fill.
 
 ---
 
@@ -36,7 +37,7 @@ press **Install**.
 To pin a release instead of tracking the default branch, append the tag:
 
 ```
-https://github.com/WooshiiDev/HierarchyDecorator.git#v2.0.0
+https://github.com/WooshiiDev/HierarchyDecorator.git#v2.0.1
 ```
 
 **manifest.json**
@@ -46,7 +47,7 @@ Add the dependency directly to `Packages/manifest.json`:
 ```json
 {
   "dependencies": {
-    "com.wooshii.hierarchydecorator": "https://github.com/WooshiiDev/HierarchyDecorator.git#v2.0.0"
+    "com.wooshii.hierarchydecorator": "https://github.com/WooshiiDev/HierarchyDecorator.git#v2.0.1"
   }
 }
 ```
@@ -127,8 +128,10 @@ Click behavior, count and filtering are all configurable under **Component Icons
 * `Fade Disabled Components` — dim the icon when the component's enable checkbox is off.
 * `Order` — component order on the GameObject, or alphabetical.
 * `Show Tooltips` — hover an icon for the component name.
-* `Click Action` — `Select` (select the GameObject and ping the component), `Toggle Enabled` (flip the
-  component's enable checkbox, recorded for undo), or `None`.
+* `Click Action` — `Toggle Enabled` (the default: flip the component's enable checkbox, recorded for undo),
+  `Select` (select the GameObject and ping the component — note that clicking the row does that anyway, so
+  this reads as doing nothing), or `None`. Clicking an icon never costs you the row: the click still selects
+  the row, and shift/ctrl-click and dragging behave as they do anywhere else in the Hierarchy.
 
 Which components are eligible is decided by the **Displayed Components** list on the same page: search the
 project's component types and set each to `Default`, `Show` or `Hide`. Only types you actually change are
@@ -147,8 +150,10 @@ This is the only indicator that ships — Hierarchy Decorator is not a static an
 
 Unity 6.6 draws alternating row backgrounds itself, and 2.0 leaves that alone by default. Enable
 **Rows > Override Alternating Colors** only when you want different colors than the editor's, then set the
-`Even Color` and `Odd Color` light/dark pairs. The override paints the shared row container, so selection,
-hover and the prefab override bar continue to work.
+`Even Color` and `Odd Color` light/dark pairs. The override paints the shared row container and is skipped on
+a selected row, so the selection highlight and the prefab override bar continue to work. Hover is the one
+exception: a row's own color wins over the editor's hover highlight, because a hover state cannot be read from
+script — a tinted row does not light up under the pointer.
 
 ### Presets
 

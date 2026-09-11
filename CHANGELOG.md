@@ -1,3 +1,51 @@
+## v2.0.1 — Defects found by using it
+
+Six defects in the default configuration, all found by inspecting a live Hierarchy window rather than by
+reading the code, and all verified fixed the same way. Nothing here changes the architecture.
+
+### Fixed
+
+- **A selected row lost its selection highlight.** A header fill, a separator and the optional row-colour
+  override all write an inline background onto the row container, and an inline style outranks every
+  stylesheet — including the rule that draws Unity's selection. The `--selected` class was on the row and had
+  no effect. Measured on a live window: a selected header row painted `RGBA(0.176, 0.176, 0.176)`, its own
+  fill, where an undecorated row painted the editor's selection colour. Rows Unity has selected are now left
+  unfilled; the row is rebound when the selection changes, so this costs one `HierarchyView.IsSelected` call
+  per bound row and no subscription.
+- **Hovering a component icon did nothing in the dark theme, and blackened the icon in the light one.** The
+  hover rule used `-unity-background-image-tint-color`, which *multiplies* the image: the dark theme's white
+  was a no-op and the light theme's `rgb(40, 40, 40)` scaled every channel to a sixth. It is a backing plate
+  now — a translucent rounded rectangle behind the icon, which reads the same in both themes.
+- **Clicking a component icon stole the row's selection and its drag.** The handler ran on `PointerDownEvent`
+  and called `StopPropagation`, but row selection and the drag-and-drop arming both sit on ancestors in that
+  event's bubble phase. A row could not be selected or dragged by any pixel the icon strip covered. The
+  action moved to `ClickEvent`, which arrives after selection has happened, and propagation is no longer
+  stopped; modified and repeated clicks are left entirely to Unity.
+- **The missing-script badge was invisible on header rows and hid the object icon on the others.** It tested
+  `Icon.resolvedStyle.display`, which still describes the previous frame — the header decoration hides that
+  icon a few lines earlier in the same dispatch — so the badge was written onto an element that had just been
+  hidden. It reads the inline value now, and is drawn as an 11px mark in the corner of the icon rather than
+  at the slot's full size over it.
+- **The Children column showed another row's count.** Its cell descriptor only matches
+  `HierarchyGameObjectHandler`, so nothing ran when a pooled cell was rebound to a scene row, and the cell
+  kept both the text and the flag that makes Unity show it. Both columns now reset their cell on unbind.
+- **The Components column header showed a circled "i" that did nothing.** That was Unity's Inspector-window
+  icon, used as a column icon; it reads as a help button, but a column header is inert and our columns are
+  not sortable. The icon is gone.
+
+### Changed
+
+- The default component-icon click action is **Toggle Enabled** rather than **Select**. `Select` puts the
+  same GameObject in the Inspector that clicking the row already would, so with it the icons looked inert.
+  `Select` is still available.
+
+### Known limitation, measured
+
+`HierarchyViewColumnDescriptor.Tooltip` has no effect in Unity 6000.6.0f1: the string reaches no element of
+the column header, and neither `MakeHeader` nor `BindHeader` is ever invoked — assigning `MakeHeader` makes
+the column disappear from the window altogether. A custom column therefore cannot explain itself on hover.
+The property is still set, so the tooltip appears by itself if Unity wires it up.
+
 ## v2.0.0 | Unreleased — Rebuilt on the Unity 6.6 Hierarchy
 
 Hierarchy Decorator has been rebuilt on Unity 6.6's public `Unity.Hierarchy` hierarchy extension API (UI Toolkit), replacing the IMGUI row callback 1.x was written against.
@@ -55,7 +103,7 @@ Hierarchy Decorator has been rebuilt on Unity 6.6's public `Unity.Hierarchy` hie
 - **Active toggles** are Unity's native row toggle now. 1.x's `ToggleDrawer` is not ported.
 - **Tag and Layer display** are Unity's native, resizable and reorderable Tag and Layer columns now. 1.x's `TagLayerInfo` grid, overflow math and dropdown pickers are not ported.
 - **Alternating rows** are native and on by default. 2.0 only offers an override of the colors.
-- Selection, hover, inactive tint, prefab text colors, the prefab arrow, the prefab override bar and the foldout are drawn by Unity again; 2.0 never re-implements them.
+- Inactive tint, prefab text colors, the prefab arrow, the prefab override bar and the foldout are drawn by Unity again; 2.0 never re-implements them. Selection is Unity's too — a selected row is skipped by anything that would fill its background. Hover is the one state 2.0 cannot preserve on a filled row, because a pseudo-state cannot be read from script.
 - Component enable state is read and written through the public `EditorUtility.GetObjectEnabled` / `SetObjectEnabled` instead of reflection over `Component.enabled`.
 - Header matching keeps 1.x's exact rule — `StartsWith` on the prefix plus, unless the rule opts out, a single following space — so existing scenes keep rendering as they did. The shipped defaults are `---` (separator), `=`, `-` and `+`.
 - The two divergent prefix-stripping implementations in 1.x are unified into one, so the drawn label and the matched label can no longer disagree.

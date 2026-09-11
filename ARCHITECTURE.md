@@ -311,6 +311,17 @@ equivalent and the underlying data is already cached.
 8. **The indent is a `translate`, so it does not change the laid-out box.** A label centred inside
    `LeftContainer` therefore lands an indent's width to the right of where it looks like it should, and the
    error grows with depth. Centred headers cancel it with an equal negative `translate`.
+9. **An inline style outranks every stylesheet, Unity's own included.** Writing `style.backgroundColor` onto
+   the row container replaces the selection highlight rather than sitting under it - the `--selected` class is
+   still on the row and does nothing. Anything that fills a row therefore skips rows where
+   `HierarchyView.IsSelected` is true. This applies to a fully transparent colour too: transparency is not
+   absence.
+10. **`resolvedStyle` describes the previous layout pass, not what the current dispatch has just written.**
+    Decorators run in order within one bind, so a decorator that needs to know what an earlier one did must
+    read the inline `style` value, where `StyleKeyword.Null` means "nothing inline, the stylesheet decides".
+11. **A pooled cell that a column has no descriptor for is never visited.** A cell descriptor is matched by
+    exact handler type, so a cell bound to a GameObject row and then reused for a scene row keeps whatever it
+    was left holding. Every column resets its cell - content *and* `IsDefaultValue` - in `UnbindCell`.
 
 ---
 
@@ -358,3 +369,13 @@ a custom badge - are recorded as post-2.0 work in the release notes rather than 
   `view.Source.SetDirty()`.
 * Unity's own `HierarchyView.k_HierarchyPingBase` constant is `"hierarchy - item__ping-base"` (with spaces)
   in 6000.6.0f1 and never matches its USS rule. 2.0 does not rely on it.
+* **A filled row loses its hover highlight.** The fill is an inline style and hover is a pseudo-state that
+  cannot be read from C#, so there is no value to skip the write on - unlike selection, which
+  `HierarchyView.IsSelected` answers. Reproducing hover with `PointerEnter`/`PointerLeave` on a pooled row was
+  rejected: it would make every row carry two more callbacks to serve a cosmetic state.
+* **A custom column cannot explain itself.** `HierarchyViewColumnDescriptor.Tooltip` has no effect in
+  6000.6.0f1 - measured on a live window, the string reaches no element of the header - and neither
+  `MakeHeader` nor `BindHeader` is ever invoked. Assigning `MakeHeader` is actively harmful: the column then
+  does not appear in the window at all. 2.0 sets `Tooltip` anyway, so it starts working if Unity wires it up,
+  and ships no column header icon, because an icon on an inert header promises an interaction that does not
+  exist.
